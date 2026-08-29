@@ -1,0 +1,27 @@
+# Task Checklist - Smart Electricity React Native App
+
+- [x] Initial Setup
+  - [x] Initialize Expo app
+- [x] Design System & State Management
+  - [x] Create constants/theme.ts
+  - [x] Create context/AppContext.tsx
+- [x] App Layout & Navigation
+  - [x] Create app/_layout.tsx
+  - [x] Create app/index.tsx
+  - [x] Create auth screens (onboarding.tsx, signup.tsx)
+  - [x] Create tab layouts & navigation (app/(tabs)/_layout.tsx)
+- [x] Tab Screens
+  - [x] Implement home dashboard (app/(tabs)/home.tsx)
+  - [x] Implement activity log (app/(tabs)/activity.tsx)
+  - [x] Implement insights & assistant (app/(tabs)/insights.tsx)
+  - [x] Implement profile & settings (app/(tabs)/profile.tsx)
+- [x] Stack Screens
+  - [x] Implement add meter (app/add-meter.tsx)
+  - [x] Implement verify meter (app/verify-meter.tsx)
+  - [x] Implement buy electricity (app/buy-electricity.tsx)
+  - [x] Implement payment success (app/payment-success.tsx)
+- [x] Fixes & Verification
+  - [x] Removed broken global.css import from theme.ts
+  - [x] Added missing surfaceVariant color token
+  - [x] Configured expo-router root to src/app in app.json
+  - [x] Expo dev server started cleanly

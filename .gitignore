@@ -31,7 +31,17 @@ yarn-error.*
 *.pem
 
 # local env files
+.env
 .env*.local
+.env.production
+.env.staging
+
+# temporary scratch
+scripts/brute_force_pw.js
+
+# IDE & agent configs
+.agents/
+.gemini/
 
 # typescript
 *.tsbuildinfo

@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Meter Verification</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "on-secondary-fixed-variant": "#304f00",
+                      "tertiary-container": "#271901",
+                      "secondary-fixed": "#acf847",
+                      "surface": "#fcf8fa",
+                      "inverse-primary": "#bec6e0",
+                      "surface-container-high": "#eae7e9",
+                      "on-surface-variant": "#45464d",
+                      "surface-dim": "#dcd9db",
+                      "on-primary-fixed-variant": "#3f465c",
+                      "secondary": "#416900",
+                      "on-background": "#1b1b1d",
+                      "tertiary": "#000000",
+                      "on-tertiary-fixed": "#271901",
+                      "primary-fixed-dim": "#bec6e0",
+                      "tertiary-fixed-dim": "#dec29a",
+                      "inverse-on-surface": "#f3f0f2",
+                      "tertiary-fixed": "#fcdeb5",
+                      "on-tertiary": "#ffffff",
+                      "background": "#fcf8fa",
+                      "primary": "#000000",
+                      "surface-bright": "#fcf8fa",
+                      "surface-container-low": "#f6f3f5",
+                      "outline-variant": "#c6c6cd",
+                      "secondary-container": "#acf847",
+                      "outline": "#76777d",
+                      "on-tertiary-fixed-variant": "#574425",
+                      "surface-variant": "#e4e2e4",
+                      "on-secondary-fixed": "#102000",
+                      "surface-tint": "#565e74",
+                      "on-secondary-container": "#457000",
+                      "on-surface": "#1b1b1d",
+                      "on-tertiary-container": "#98805d",
+                      "on-primary": "#ffffff",
+                      "surface-container": "#f0edef",
+                      "on-primary-fixed": "#131b2e",
+                      "primary-fixed": "#dae2fd",
+                      "on-primary-container": "#7c839b",
+                      "surface-container-highest": "#e4e2e4",
+                      "error-container": "#ffdad6",
+                      "on-error-container": "#93000a",
+                      "on-error": "#ffffff",
+                      "inverse-surface": "#303032",
+                      "on-secondary": "#ffffff",
+                      "primary-container": "#131b2e",
+                      "surface-container-lowest": "#ffffff",
+                      "secondary-fixed-dim": "#91db2a",
+                      "error": "#ba1a1a"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "spacing": {
+                      "base": "4px",
+                      "xl": "32px",
+                      "container-margin": "20px",
+                      "md": "16px",
+                      "sm": "12px",
+                      "xs": "8px",
+                      "lg": "24px",
+                      "card-gap": "16px"
+              },
+              "fontFamily": {
+                      "headline-lg": ["Inter", "sans-serif"],
+                      "body-lg": ["Inter", "sans-serif"],
+                      "headline-md": ["Inter", "sans-serif"],
+                      "label-caps": ["Inter", "sans-serif"],
+                      "headline-lg-mobile": ["Inter", "sans-serif"],
+                      "metric-unit": ["Inter", "sans-serif"],
+                      "body-md": ["Inter", "sans-serif"],
+                      "display-metrics": ["Inter", "sans-serif"]
+              },
+              "fontSize": {
+                      "headline-lg": ["30px", {"lineHeight": "38px", "letterSpacing": "-0.01em", "fontWeight": "700"}],
+                      "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}],
+                      "headline-md": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                      "label-caps": ["12px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "600"}],
+                      "headline-lg-mobile": ["24px", {"lineHeight": "32px", "fontWeight": "700"}],
+                      "metric-unit": ["14px", {"lineHeight": "20px", "fontWeight": "500"}],
+                      "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                      "display-metrics": ["48px", {"lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700"}]
+              }
+            },
+          },
+        }
+    </script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        .material-symbols-outlined {
+          font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24;
+        }
+        .pulse-ring {
+            animation: pulse-ring 2s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+        }
+        @keyframes pulse-ring {
+            0% { transform: scale(0.8); box-shadow: 0 0 0 0 rgba(172, 248, 71, 0.7); }
+            70% { transform: scale(1); box-shadow: 0 0 0 20px rgba(172, 248, 71, 0); }
+            100% { transform: scale(0.8); box-shadow: 0 0 0 0 rgba(172, 248, 71, 0); }
+        }
+        .fade-in {
+            animation: fadeIn 0.5s ease-out forwards;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .slide-up {
+            animation: slideUp 0.4s ease-out forwards;
+        }
+        @keyframes slideUp {
+            from { transform: translateY(100%); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-background font-body-md min-h-screen flex flex-col justify-center items-center p-container-margin md:p-0">
+<!-- Top App Bar (Suppressed for transactional screen, kept minimal) -->
+<header class="fixed top-0 left-0 w-full z-50 p-container-margin flex justify-between items-center bg-background/80 backdrop-blur-sm md:hidden">
+<button aria-label="Go back" class="w-10 h-10 flex items-center justify-center rounded-full bg-surface-container-low hover:bg-surface-container-high transition-colors">
+<span class="material-symbols-outlined text-primary" data-icon="arrow_back">arrow_back</span>
+</button>
+<!-- Logo simplified for transactional screen -->
+<div class="font-headline-md text-primary">Smart Electricity</div>
+<div class="w-10"></div> <!-- Spacer -->
+</header>
+<main class="w-full max-w-md mx-auto pt-20 md:pt-0 relative min-h-[707px] flex flex-col justify-center">
+<!-- STATE 1: Loading (Hidden by default in this demo, toggled via JS) -->
+<div class="hidden flex-col items-center justify-center text-center space-y-xl fade-in absolute inset-0" id="loading-state">
+<div class="relative w-32 h-32 flex items-center justify-center">
+<div class="absolute inset-0 rounded-full border-4 border-surface-container-highest"></div>
+<div class="absolute inset-0 rounded-full border-4 border-primary border-t-transparent animate-spin"></div>
+<span class="material-symbols-outlined text-4xl text-primary" data-icon="electric_meter">electric_meter</span>
+</div>
+<div class="space-y-sm">
+<h2 class="font-headline-lg-mobile text-headline-lg-mobile md:font-headline-lg md:text-headline-lg text-primary">Verifying Meter</h2>
+<p class="font-body-md text-body-md text-on-surface-variant">Please wait while we confirm your details securely.</p>
+</div>
+</div>
+<!-- STATE 2: Success -->
+<div class="flex flex-col w-full space-y-xl fade-in relative z-10" id="success-state">
+<div class="text-center space-y-md">
+<div class="mx-auto w-24 h-24 bg-secondary-container rounded-full flex items-center justify-center pulse-ring mb-lg">
+<span class="material-symbols-outlined text-on-secondary-container" data-icon="check_circle" style="font-size: 48px; font-variation-settings: 'FILL' 1;">check_circle</span>
+</div>
+<h1 class="font-headline-lg-mobile text-headline-lg-mobile md:font-headline-lg md:text-headline-lg text-primary tracking-tight">Meter Verified</h1>
+<p class="font-body-md text-body-md text-on-surface-variant">Your meter is ready for electricity payments.</p>
+</div>
+<!-- Glassmorphic Details Card -->
+<div class="bg-surface rounded-xl border border-outline-variant p-lg space-y-md relative overflow-hidden shadow-[0px_4px_20px_rgba(15,23,42,0.05)]">
+<!-- Decorative subtle gradient -->
+<div class="absolute -top-10 -right-10 w-32 h-32 bg-secondary-container/20 rounded-full blur-2xl pointer-events-none"></div>
+<div class="flex justify-between items-start pb-md border-b border-surface-container-highest">
+<div>
+<span class="font-label-caps text-label-caps text-on-surface-variant uppercase block mb-1">Customer Name</span>
+<span class="font-headline-md text-headline-md text-primary">Musa Ibrahim</span>
+</div>
+<span class="bg-secondary-container/30 text-on-secondary-container font-label-caps text-label-caps px-2 py-1 rounded-full uppercase tracking-wide flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]" data-icon="bolt" style="font-variation-settings: 'FILL' 1;">bolt</span>
+                        Active
+                    </span>
+</div>
+<div class="grid grid-cols-2 gap-card-gap pt-sm">
+<div class="space-y-1">
+<span class="font-label-caps text-label-caps text-on-surface-variant uppercase block">Meter Number</span>
+<span class="font-metric-unit text-metric-unit text-primary">0419 8273 645</span>
+</div>
+<div class="space-y-1">
+<span class="font-label-caps text-label-caps text-on-surface-variant uppercase block">Provider</span>
+<span class="font-metric-unit text-metric-unit text-primary">YEDC (Prepaid)</span>
+</div>
+<div class="space-y-1 col-span-2 pt-xs">
+<span class="font-label-caps text-label-caps text-on-surface-variant uppercase block">Address</span>
+<span class="font-body-md text-body-md text-on-surface-variant">Plot 12, Wuse Zone 5, Abuja</span>
+</div>
+</div>
+</div>
+<!-- Sticky CTA Area -->
+<div class="fixed bottom-0 left-0 w-full p-container-margin md:relative md:p-0 mt-xl bg-gradient-to-t from-background via-background to-transparent md:bg-none pb-8 md:pb-0 z-20">
+<button class="w-full bg-primary text-on-primary h-[52px] rounded-lg font-headline-md text-metric-unit flex items-center justify-center transition-transform active:scale-[0.98] hover:bg-primary/90">
+                    Continue to Payment
+                </button>
+</div>
+</div>
+<!-- Alternative State: Error Toast (Hidden by default) -->
+<div class="hidden fixed bottom-24 left-container-margin right-container-margin md:left-auto md:right-container-margin md:w-96 bg-error-container border border-error/20 p-md rounded-lg shadow-lg flex items-start gap-md slide-up z-50" id="error-toast">
+<span class="material-symbols-outlined text-error shrink-0 mt-0.5" data-icon="error" style="font-variation-settings: 'FILL' 1;">error</span>
+<div>
+<h4 class="font-metric-unit text-metric-unit text-on-error-container font-semibold">Verification Failed</h4>
+<p class="font-body-md text-sm text-on-error-container/80 mt-1">We couldn't verify this meter number with YEDC. Please check the number and try again.</p>
+</div>
+<button aria-label="Dismiss error" class="ml-auto text-on-error-container hover:bg-error/10 p-1 rounded-full transition-colors" onclick="document.getElementById('error-toast').classList.add('hidden')">
+<span class="material-symbols-outlined" data-icon="close">close</span>
+</button>
+</div>
+</main>
+<!-- Navigation Shell Suppressed as per "Semantic Shell Mandate" for transactional screens -->
+<script>
+        // Simple script to demonstrate state transitions if needed
+        // Uncomment to test loading state
+        /*
+        document.getElementById('success-state').classList.add('hidden');
+        document.getElementById('loading-state').classList.remove('hidden');
+        
+        setTimeout(() => {
+            document.getElementById('loading-state').classList.add('hidden');
+            document.getElementById('success-state').classList.remove('hidden');
+            // document.getElementById('error-toast').classList.remove('hidden'); // Test error toast
+        }, 3000);
+        */
+    </script>
+</body></html>

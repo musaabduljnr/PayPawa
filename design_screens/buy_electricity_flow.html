@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Smart Electricity - Buy Flow</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "on-secondary-fixed-variant": "#304f00",
+                      "tertiary-container": "#271901",
+                      "secondary-fixed": "#acf847",
+                      "surface": "#fcf8fa",
+                      "inverse-primary": "#bec6e0",
+                      "surface-container-high": "#eae7e9",
+                      "on-surface-variant": "#45464d",
+                      "surface-dim": "#dcd9db",
+                      "on-primary-fixed-variant": "#3f465c",
+                      "secondary": "#416900",
+                      "on-background": "#1b1b1d",
+                      "tertiary": "#000000",
+                      "on-tertiary-fixed": "#271901",
+                      "primary-fixed-dim": "#bec6e0",
+                      "tertiary-fixed-dim": "#dec29a",
+                      "inverse-on-surface": "#f3f0f2",
+                      "tertiary-fixed": "#fcdeb5",
+                      "on-tertiary": "#ffffff",
+                      "background": "#fcf8fa",
+                      "primary": "#000000",
+                      "surface-bright": "#fcf8fa",
+                      "surface-container-low": "#f6f3f5",
+                      "outline-variant": "#c6c6cd",
+                      "secondary-container": "#acf847",
+                      "outline": "#76777d",
+                      "on-tertiary-fixed-variant": "#574425",
+                      "surface-variant": "#e4e2e4",
+                      "on-secondary-fixed": "#102000",
+                      "surface-tint": "#565e74",
+                      "on-secondary-container": "#457000",
+                      "on-surface": "#1b1b1d",
+                      "on-tertiary-container": "#98805d",
+                      "on-primary": "#ffffff",
+                      "surface-container": "#f0edef",
+                      "on-primary-fixed": "#131b2e",
+                      "primary-fixed": "#dae2fd",
+                      "on-primary-container": "#7c839b",
+                      "surface-container-highest": "#e4e2e4",
+                      "error-container": "#ffdad6",
+                      "on-error-container": "#93000a",
+                      "on-error": "#ffffff",
+                      "inverse-surface": "#303032",
+                      "on-secondary": "#ffffff",
+                      "primary-container": "#131b2e",
+                      "surface-container-lowest": "#ffffff",
+                      "secondary-fixed-dim": "#91db2a",
+                      "error": "#ba1a1a"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "spacing": {
+                      "base": "4px",
+                      "xl": "32px",
+                      "container-margin": "20px",
+                      "md": "16px",
+                      "sm": "12px",
+                      "xs": "8px",
+                      "lg": "24px",
+                      "card-gap": "16px"
+              },
+              "fontFamily": {
+                      "headline-lg": ["Inter"],
+                      "body-lg": ["Inter"],
+                      "headline-md": ["Inter"],
+                      "label-caps": ["Inter"],
+                      "headline-lg-mobile": ["Inter"],
+                      "metric-unit": ["Inter"],
+                      "body-md": ["Inter"],
+                      "display-metrics": ["Inter"]
+              },
+              "fontSize": {
+                      "headline-lg": ["30px", {"lineHeight": "38px", "letterSpacing": "-0.01em", "fontWeight": "700"}],
+                      "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}],
+                      "headline-md": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                      "label-caps": ["12px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "600"}],
+                      "headline-lg-mobile": ["24px", {"lineHeight": "32px", "fontWeight": "700"}],
+                      "metric-unit": ["14px", {"lineHeight": "20px", "fontWeight": "500"}],
+                      "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                      "display-metrics": ["48px", {"lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700"}]
+              }
+            },
+          },
+        }
+    </script>
+<style>
+        /* Custom Styles for Interactive Elements */
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(226, 232, 240, 0.8);
+        }
+        
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        .screen {
+            display: none;
+            animation: fadeIn 0.3s ease-out;
+        }
+        
+        .screen.active {
+            display: flex;
+            flex-direction: column;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes pulse-ring {
+            0% { transform: scale(0.8); box-shadow: 0 0 0 0 rgba(172, 248, 71, 0.7); }
+            70% { transform: scale(1); box-shadow: 0 0 0 20px rgba(172, 248, 71, 0); }
+            100% { transform: scale(0.8); box-shadow: 0 0 0 0 rgba(172, 248, 71, 0); }
+        }
+        
+        .processing-spinner {
+            animation: pulse-ring 2s infinite cubic-bezier(0.215, 0.61, 0.355, 1);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-background font-body-md h-screen w-full overflow-hidden flex justify-center items-center">
+<!-- Mobile Frame Container (for preview purposes on desktop) -->
+<div class="w-full max-w-md h-full max-h-[896px] bg-background relative overflow-hidden flex flex-col shadow-2xl rounded-none md:rounded-3xl border-0 md:border md:border-outline-variant">
+<!-- ==================== SCREEN 1: ENTER AMOUNT ==================== -->
+<div class="screen active h-full w-full" id="screen-amount">
+<!-- App Bar (Transactional - No Nav Shell) -->
+<header class="flex justify-between items-center w-full px-container-margin py-md bg-background sticky top-0 z-10">
+<button aria-label="Back" class="w-10 h-10 flex items-center justify-center rounded-full bg-surface-container hover:bg-surface-container-high transition-colors text-on-surface">
+<span class="material-symbols-outlined" style="font-variation-settings: 'wght' 400;">arrow_back</span>
+</button>
+<h1 class="font-headline-md text-headline-md text-on-surface">Buy Electricity</h1>
+<div class="w-10 h-10"></div> <!-- Spacer for centering -->
+</header>
+<main class="flex-1 overflow-y-auto px-container-margin pb-[100px] hide-scrollbar pt-4">
+<!-- Meter Selector -->
+<div class="bg-surface rounded-xl p-4 border border-outline-variant mb-6 flex items-center justify-between cursor-pointer hover:bg-surface-container-low transition-colors shadow-sm">
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 rounded-full bg-secondary-container text-on-secondary-container flex items-center justify-center">
+<span class="material-symbols-outlined" style="font-variation-settings: 'wght' 300;">bolt</span>
+</div>
+<div>
+<p class="font-metric-unit text-metric-unit text-on-surface font-medium">Home</p>
+<p class="font-body-md text-sm text-on-surface-variant mt-0.5">YEDC ••••4821</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-outline">expand_more</span>
+</div>
+<!-- Amount Input Area -->
+<div class="flex flex-col items-center justify-center py-8 mb-6">
+<p class="font-label-caps text-label-caps text-on-surface-variant mb-2">ENTER AMOUNT</p>
+<div class="relative flex items-center">
+<span class="font-display-metrics text-[32px] text-on-surface-variant mr-1 mb-1">₦</span>
+<input class="bg-transparent border-none outline-none font-display-metrics text-display-metrics text-center w-full max-w-[200px] text-on-surface focus:ring-0 p-0 m-0 leading-none h-[64px]" readonly="" type="text" value="10,000"/>
+</div>
+<div class="h-1 w-24 bg-surface-variant mt-2 rounded-full"></div>
+</div>
+<!-- Preset Buttons (Bento-style Grid) -->
+<div class="grid grid-cols-2 gap-3 mb-6">
+<button class="bg-surface border border-outline-variant rounded-xl py-4 flex flex-col items-center justify-center hover:bg-surface-container-low transition-colors text-on-surface font-metric-unit text-metric-unit">
+                        ₦5,000
+                    </button>
+<button class="bg-primary-container text-on-primary-container border border-primary rounded-xl py-4 flex flex-col items-center justify-center font-metric-unit text-metric-unit font-bold shadow-sm relative overflow-hidden">
+<div class="absolute inset-0 bg-secondary-fixed opacity-10"></div>
+                        ₦10,000
+                    </button>
+<button class="bg-surface border border-outline-variant rounded-xl py-4 flex flex-col items-center justify-center hover:bg-surface-container-low transition-colors text-on-surface font-metric-unit text-metric-unit">
+                        ₦20,000
+                    </button>
+<button class="bg-surface border border-outline-variant rounded-xl py-4 flex flex-col items-center justify-center hover:bg-surface-container-low transition-colors text-on-surface font-metric-unit text-metric-unit">
+                        ₦50,000
+                    </button>
+</div>
+<!-- Numeric Keypad (Visual representation) -->
+<div class="grid grid-cols-3 gap-y-6 gap-x-4 mt-8 px-4">
+<button class="text-headline-md font-headline-md text-on-surface h-12 flex items-center justify-center hover:bg-surface-container rounded-full transition-colors">1</button>
+<button class="text-headline-md font-headline-md text-on-surface h-12 flex items-center justify-center hover:bg-surface-container rounded-full transition-colors">2</button>
+<button class="text-headline-md font-headline-md text-on-surface h-12 flex items-center justify-center hover:bg-surface-container rounded-full transition-colors">3</button>
+<button class="text-headline-md font-headline-md text-on-surface h-12 flex items-center justify-center hover:bg-surface-container rounded-full transition-colors">4</button>
+<button class="text-headline-md font-headline-md text-on-surface h-12 flex items-center justify-center hover:bg-surface-container rounded-full transition-colors">5</button>
+<button class="text-headline-md font-headline-md text-on-surface h-12 flex items-center justify-center hover:bg-surface-container rounded-full transition-colors">6</button>
+<button class="text-headline-md font-headline-md text-on-surface h-12 flex items-center justify-center hover:bg-surface-container rounded-full transition-colors">7</button>
+<button class="text-headline-md font-headline-md text-on-surface h-12 flex items-center justify-center hover:bg-surface-container rounded-full transition-colors">8</button>
+<button class="text-headline-md font-headline-md text-on-surface h-12 flex items-center justify-center hover:bg-surface-container rounded-full transition-colors">9</button>
+<button class="text-on-surface h-12 flex items-center justify-center hover:bg-surface-container rounded-full transition-colors font-bold text-lg">.</button>
+<button class="text-headline-md font-headline-md text-on-surface h-12 flex items-center justify-center hover:bg-surface-container rounded-full transition-colors">0</button>
+<button class="text-on-surface h-12 flex items-center justify-center hover:bg-surface-container rounded-full transition-colors">
+<span class="material-symbols-outlined">backspace</span>
+</button>
+</div>
+</main>
+<!-- Sticky CTA Area -->
+<div class="absolute bottom-0 left-0 w-full p-container-margin bg-gradient-to-t from-background via-background to-transparent pt-12 pb-8 z-20">
+<button class="w-full h-[52px] bg-primary text-on-primary rounded-full font-metric-unit text-metric-unit flex items-center justify-center hover:bg-on-surface transition-colors shadow-[0_4px_14px_0_rgba(0,0,0,0.1)]" onclick="goToScreen('screen-review')">
+                    Continue
+                </button>
+</div>
+</div>
+<!-- ==================== SCREEN 2: REVIEW ==================== -->
+<div class="screen h-full w-full" id="screen-review">
+<header class="flex justify-between items-center w-full px-container-margin py-md bg-background sticky top-0 z-10">
+<button aria-label="Back" class="w-10 h-10 flex items-center justify-center rounded-full bg-surface-container hover:bg-surface-container-high transition-colors text-on-surface" onclick="goToScreen('screen-amount')">
+<span class="material-symbols-outlined" style="font-variation-settings: 'wght' 400;">arrow_back</span>
+</button>
+<h1 class="font-headline-md text-headline-md text-on-surface">Review Payment</h1>
+<div class="w-10 h-10"></div>
+</header>
+<main class="flex-1 overflow-y-auto px-container-margin pb-[100px] hide-scrollbar pt-6">
+<!-- Receipt Card -->
+<div class="bg-surface border border-outline-variant rounded-[24px] p-6 shadow-sm relative overflow-hidden">
+<!-- Decorative element -->
+<div class="absolute -right-6 -top-6 w-24 h-24 bg-secondary-container rounded-full opacity-20 blur-xl"></div>
+<div class="flex flex-col items-center justify-center mb-8 border-b border-surface-variant pb-6">
+<p class="font-label-caps text-label-caps text-on-surface-variant mb-2">AMOUNT TO PAY</p>
+<h2 class="font-display-metrics text-[40px] leading-tight text-on-surface">₦10,000</h2>
+</div>
+<div class="space-y-4">
+<div class="flex justify-between items-center py-1">
+<span class="font-body-md text-on-surface-variant">Provider</span>
+<span class="font-metric-unit text-metric-unit text-on-surface font-medium">YEDC</span>
+</div>
+<div class="flex justify-between items-center py-1">
+<span class="font-body-md text-on-surface-variant">Meter</span>
+<span class="font-metric-unit text-metric-unit text-on-surface font-medium flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px] text-secondary">home</span> Home
+                            </span>
+</div>
+<div class="flex justify-between items-center py-1">
+<span class="font-body-md text-on-surface-variant">Meter Num</span>
+<span class="font-metric-unit text-metric-unit text-on-surface font-medium">•••• 4821</span>
+</div>
+<div class="flex justify-between items-center py-1">
+<span class="font-body-md text-on-surface-variant">Type</span>
+<span class="font-metric-unit text-metric-unit text-on-surface font-medium bg-surface-container px-2 py-0.5 rounded text-xs">Prepaid</span>
+</div>
+<div class="border-t border-dashed border-outline-variant my-4 pt-4"></div>
+<div class="flex justify-between items-center py-1">
+<span class="font-body-md text-on-surface-variant">Amount</span>
+<span class="font-metric-unit text-metric-unit text-on-surface font-medium">₦10,000.00</span>
+</div>
+<div class="flex justify-between items-center py-1">
+<span class="font-body-md text-on-surface-variant">Fee</span>
+<span class="font-metric-unit text-metric-unit text-on-surface font-medium">₦0.00</span>
+</div>
+</div>
+</div>
+<!-- Payment Method Snippet -->
+<div class="mt-6 bg-surface rounded-xl p-4 border border-outline-variant flex items-center justify-between shadow-sm">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded bg-primary text-on-primary flex items-center justify-center font-bold">
+                            W
+                        </div>
+<div>
+<p class="font-metric-unit text-metric-unit text-on-surface font-medium">Wallet Balance</p>
+<p class="font-body-md text-sm text-on-surface-variant mt-0.5">₦45,250.00 available</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-outline">check_circle</span>
+</div>
+</main>
+<!-- Sticky CTA Area -->
+<div class="absolute bottom-0 left-0 w-full p-container-margin bg-gradient-to-t from-background via-background to-transparent pt-12 pb-8 z-20">
+<button class="w-full h-[52px] bg-primary text-on-primary rounded-full font-metric-unit text-metric-unit flex items-center justify-center hover:bg-on-surface transition-colors shadow-[0_4px_14px_0_rgba(0,0,0,0.1)] gap-2" onclick="goToScreen('screen-processing')">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1, 'wght' 400; font-size: 20px;">lock</span>
+                    Pay ₦10,000
+                </button>
+</div>
+</div>
+<!-- ==================== SCREEN 3: PROCESSING ==================== -->
+<div class="screen h-full w-full bg-primary flex-col items-center justify-center relative overflow-hidden" id="screen-processing">
+<!-- Atmospheric background elements -->
+<div class="absolute inset-0 overflow-hidden pointer-events-none">
+<div class="absolute top-1/4 -left-10 w-64 h-64 bg-secondary-fixed rounded-full mix-blend-screen filter blur-[100px] opacity-20"></div>
+<div class="absolute bottom-1/4 -right-10 w-64 h-64 bg-secondary-fixed rounded-full mix-blend-screen filter blur-[100px] opacity-20"></div>
+</div>
+<div class="z-10 flex flex-col items-center">
+<!-- Custom Animated Spinner using Tailwind -->
+<div class="relative w-24 h-24 mb-8 flex items-center justify-center">
+<div class="absolute inset-0 rounded-full border-4 border-surface-tint border-t-secondary-fixed animate-spin"></div>
+<div class="w-12 h-12 bg-secondary-container rounded-full processing-spinner flex items-center justify-center">
+<span class="material-symbols-outlined text-on-secondary-container" style="font-variation-settings: 'FILL' 1;">bolt</span>
+</div>
+</div>
+<h2 class="font-headline-md text-headline-md text-on-primary mb-2">Processing payment</h2>
+<p class="font-body-md text-on-primary-container text-center max-w-[250px]">Generating your token securely from YEDC...</p>
+<div class="mt-12 bg-on-primary-fixed-variant rounded-full px-4 py-2 flex items-center gap-2">
+<span class="material-symbols-outlined text-secondary-fixed text-[16px]">verified_user</span>
+<span class="font-label-caps text-label-caps text-inverse-on-surface">SECURE CONNECTION</span>
+</div>
+</div>
+</div>
+</div>
+<script>
+        function goToScreen(screenId) {
+            // Hide all screens
+            document.querySelectorAll('.screen').forEach(el => {
+                el.classList.remove('active');
+            });
+            
+            // Show target screen
+            document.getElementById(screenId).classList.add('active');
+
+            // If processing screen, simulate a delay then reset (for demo purposes)
+            if(screenId === 'screen-processing') {
+                setTimeout(() => {
+                    // Normally this would go to a success screen, but we loop back for the demo
+                    goToScreen('screen-amount');
+                }, 3500);
+            }
+        }
+    </script>
+</body></html>

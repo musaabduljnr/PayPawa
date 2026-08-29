@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
+<title>Sign Up - Smart Electricity</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-secondary-fixed-variant": "#304f00",
+                        "tertiary-container": "#271901",
+                        "secondary-fixed": "#acf847",
+                        "surface": "#fcf8fa",
+                        "inverse-primary": "#bec6e0",
+                        "surface-container-high": "#eae7e9",
+                        "on-surface-variant": "#45464d",
+                        "surface-dim": "#dcd9db",
+                        "on-primary-fixed-variant": "#3f465c",
+                        "secondary": "#416900",
+                        "on-background": "#1b1b1d",
+                        "tertiary": "#000000",
+                        "on-tertiary-fixed": "#271901",
+                        "primary-fixed-dim": "#bec6e0",
+                        "tertiary-fixed-dim": "#dec29a",
+                        "inverse-on-surface": "#f3f0f2",
+                        "tertiary-fixed": "#fcdeb5",
+                        "on-tertiary": "#ffffff",
+                        "background": "#fcf8fa",
+                        "primary": "#000000",
+                        "surface-bright": "#fcf8fa",
+                        "surface-container-low": "#f6f3f5",
+                        "outline-variant": "#c6c6cd",
+                        "secondary-container": "#acf847",
+                        "outline": "#76777d",
+                        "on-tertiary-fixed-variant": "#574425",
+                        "surface-variant": "#e4e2e4",
+                        "on-secondary-fixed": "#102000",
+                        "surface-tint": "#565e74",
+                        "on-secondary-container": "#457000",
+                        "on-surface": "#1b1b1d",
+                        "on-tertiary-container": "#98805d",
+                        "on-primary": "#ffffff",
+                        "surface-container": "#f0edef",
+                        "on-primary-fixed": "#131b2e",
+                        "primary-fixed": "#dae2fd",
+                        "on-primary-container": "#7c839b",
+                        "surface-container-highest": "#e4e2e4",
+                        "error-container": "#ffdad6",
+                        "on-error-container": "#93000a",
+                        "on-error": "#ffffff",
+                        "inverse-surface": "#303032",
+                        "on-secondary": "#ffffff",
+                        "primary-container": "#131b2e",
+                        "surface-container-lowest": "#ffffff",
+                        "secondary-fixed-dim": "#91db2a",
+                        "error": "#ba1a1a"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "base": "4px",
+                        "xl": "32px",
+                        "container-margin": "20px",
+                        "md": "16px",
+                        "sm": "12px",
+                        "xs": "8px",
+                        "lg": "24px",
+                        "card-gap": "16px"
+                    },
+                    "fontFamily": {
+                        "headline-lg": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "headline-md": ["Inter"],
+                        "label-caps": ["Inter"],
+                        "headline-lg-mobile": ["Inter"],
+                        "metric-unit": ["Inter"],
+                        "body-md": ["Inter"],
+                        "display-metrics": ["Inter"]
+                    },
+                    "fontSize": {
+                        "headline-lg": ["30px", { "lineHeight": "38px", "letterSpacing": "-0.01em", "fontWeight": "700" }],
+                        "body-lg": ["18px", { "lineHeight": "28px", "fontWeight": "400" }],
+                        "headline-md": ["20px", { "lineHeight": "28px", "fontWeight": "600" }],
+                        "label-caps": ["12px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "600" }],
+                        "headline-lg-mobile": ["24px", { "lineHeight": "32px", "fontWeight": "700" }],
+                        "metric-unit": ["14px", { "lineHeight": "20px", "fontWeight": "500" }],
+                        "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "display-metrics": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        /* Custom Input Styles based on guidelines */
+        .custom-input {
+            width: 100%;
+            height: 52px;
+            background-color: theme('colors.surface');
+            border: 1px solid theme('colors.outline-variant');
+            border-radius: theme('borderRadius.lg');
+            padding: 0 theme('spacing.md');
+            color: theme('colors.on-surface');
+            font-family: theme('fontFamily.body-md');
+            font-size: 16px; /* Preventing iOS zoom */
+            transition: all 0.2s ease-in-out;
+        }
+        
+        .custom-input:focus {
+            outline: none;
+            border-color: theme('colors.primary');
+            box-shadow: 0 0 0 2px rgba(172, 248, 71, 0.3); /* Electric Green soft glow equivalent to design system intent */
+        }
+
+        .custom-input::placeholder {
+            color: theme('colors.outline');
+        }
+
+        .input-group {
+            margin-bottom: theme('spacing.lg');
+        }
+
+        .input-label {
+            display: block;
+            margin-bottom: theme('spacing.xs');
+            color: theme('colors.on-surface');
+            font-family: theme('fontFamily.metric-unit');
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .btn-primary {
+            width: 100%;
+            height: 52px;
+            background-color: theme('colors.primary-container');
+            color: theme('colors.on-primary');
+            border-radius: theme('borderRadius.lg');
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: theme('fontFamily.headline-md');
+            font-size: 16px;
+            font-weight: 600;
+            transition: opacity 0.2s ease;
+        }
+
+        .btn-primary:active {
+            opacity: 0.8;
+        }
+
+        /* Suppress navigation shell as this is a transactional screen */
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-background min-h-screen flex flex-col font-body-md antialiased md:hidden">
+<!-- Suppressing Navigation Shell based on rules for linear/transactional screens -->
+<!-- Main Canvas -->
+<main class="flex-grow px-container-margin pt-xl pb-xl flex flex-col justify-between overflow-y-auto">
+<div class="w-full max-w-md mx-auto">
+<!-- Header Section -->
+<header class="mb-xl text-center md:text-left mt-8">
+<!-- Decorative Icon representing the brand/app -->
+<div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-surface-container-high mb-6">
+<span class="material-symbols-outlined text-4xl text-primary" data-icon="electric_bolt">electric_bolt</span>
+</div>
+<h1 class="font-headline-lg-mobile text-headline-lg-mobile text-primary mb-2">Create your account</h1>
+<p class="font-body-md text-body-md text-on-surface-variant">Join Smart Electricity and take control of your power today.</p>
+</header>
+<!-- Form Section -->
+<form action="#" class="space-y-6" method="POST">
+<!-- Full Name -->
+<div class="input-group">
+<label class="input-label" for="fullName">Full Name</label>
+<input autocomplete="name" class="custom-input" id="fullName" name="fullName" placeholder="e.g. Chinedu Okafor" required="" type="text"/>
+</div>
+<!-- Email -->
+<div class="input-group">
+<label class="input-label" for="email">Email Address</label>
+<input autocomplete="email" class="custom-input" id="email" name="email" placeholder="name@example.com" required="" type="email"/>
+</div>
+<!-- Phone Number -->
+<div class="input-group">
+<label class="input-label" for="phone">Phone Number</label>
+<div class="relative">
+<div class="absolute inset-y-0 left-0 pl-md flex items-center pointer-events-none">
+<span class="text-on-surface-variant font-metric-unit">+234</span>
+</div>
+<input autocomplete="tel" class="custom-input pl-16" id="phone" name="phone" placeholder="800 000 0000" required="" type="tel"/>
+</div>
+</div>
+<!-- Password -->
+<div class="input-group">
+<label class="input-label" for="password">Password</label>
+<div class="relative">
+<input autocomplete="new-password" class="custom-input pr-12" id="password" name="password" placeholder="Min. 8 characters" required="" type="password"/>
+<button aria-label="Toggle password visibility" class="absolute inset-y-0 right-0 pr-md flex items-center text-on-surface-variant hover:text-primary transition-colors focus:outline-none" type="button">
+<span class="material-symbols-outlined" data-icon="visibility_off">visibility_off</span>
+</button>
+</div>
+</div>
+<!-- Terms and Privacy -->
+<div class="flex items-start mt-4 mb-xl">
+<div class="flex items-center h-5">
+<input class="w-5 h-5 text-primary-container bg-surface border-outline-variant rounded focus:ring-secondary-fixed focus:ring-2" id="terms" name="terms" type="checkbox"/>
+</div>
+<div class="ml-3 text-sm">
+<label class="font-body-md text-body-md text-on-surface-variant" for="terms">
+                            I agree to the <a class="font-medium text-primary underline decoration-primary-container/30 hover:decoration-primary-container" href="#">Terms of Service</a> and <a class="font-medium text-primary underline decoration-primary-container/30 hover:decoration-primary-container" href="#">Privacy Policy</a>
+</label>
+</div>
+</div>
+</form>
+</div>
+<!-- Sticky Footer CTA area -->
+<div class="mt-8 w-full max-w-md mx-auto pt-6 pb-4 bg-background z-10 sticky bottom-0 border-t border-surface-container-high/50">
+<button class="btn-primary mb-4 w-full" onclick="event.preventDefault();" type="submit">
+                Create account
+            </button>
+<div class="text-center">
+<p class="font-body-md text-body-md text-on-surface-variant">
+                    Already have an account? 
+                    <a class="font-headline-md text-headline-md text-primary ml-1 hover:opacity-80 transition-opacity" href="#">Sign in</a>
+</p>
+</div>
+</div>
+</main>
+<script>
+        // Simple script to toggle password visibility
+        document.addEventListener('DOMContentLoaded', () => {
+            const toggleButton = document.querySelector('button[aria-label="Toggle password visibility"]');
+            const passwordInput = document.getElementById('password');
+            const iconSpan = toggleButton.querySelector('span');
+
+            toggleButton.addEventListener('click', () => {
+                if (passwordInput.type === 'password') {
+                    passwordInput.type = 'text';
+                    iconSpan.textContent = 'visibility';
+                    iconSpan.setAttribute('data-icon', 'visibility');
+                } else {
+                    passwordInput.type = 'password';
+                    iconSpan.textContent = 'visibility_off';
+                    iconSpan.setAttribute('data-icon', 'visibility_off');
+                }
+            });
+        });
+    </script>
+</body></html>

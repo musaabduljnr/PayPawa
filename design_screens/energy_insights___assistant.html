@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Smart Electricity - Insights</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+  tailwind.config = {
+    darkMode: "class",
+    theme: {
+      extend: {
+        "colors": {
+                "on-secondary-fixed-variant": "#304f00",
+                "tertiary-container": "#271901",
+                "secondary-fixed": "#acf847",
+                "surface": "#fcf8fa",
+                "inverse-primary": "#bec6e0",
+                "surface-container-high": "#eae7e9",
+                "on-surface-variant": "#45464d",
+                "surface-dim": "#dcd9db",
+                "on-primary-fixed-variant": "#3f465c",
+                "secondary": "#416900",
+                "on-background": "#1b1b1d",
+                "tertiary": "#000000",
+                "on-tertiary-fixed": "#271901",
+                "primary-fixed-dim": "#bec6e0",
+                "tertiary-fixed-dim": "#dec29a",
+                "inverse-on-surface": "#f3f0f2",
+                "tertiary-fixed": "#fcdeb5",
+                "on-tertiary": "#ffffff",
+                "background": "#fcf8fa",
+                "primary": "#000000",
+                "surface-bright": "#fcf8fa",
+                "surface-container-low": "#f6f3f5",
+                "outline-variant": "#c6c6cd",
+                "secondary-container": "#acf847",
+                "outline": "#76777d",
+                "on-tertiary-fixed-variant": "#574425",
+                "surface-variant": "#e4e2e4",
+                "on-secondary-fixed": "#102000",
+                "surface-tint": "#565e74",
+                "on-secondary-container": "#457000",
+                "on-surface": "#1b1b1d",
+                "on-tertiary-container": "#98805d",
+                "on-primary": "#ffffff",
+                "surface-container": "#f0edef",
+                "on-primary-fixed": "#131b2e",
+                "primary-fixed": "#dae2fd",
+                "on-primary-container": "#7c839b",
+                "surface-container-highest": "#e4e2e4",
+                "error-container": "#ffdad6",
+                "on-error-container": "#93000a",
+                "on-error": "#ffffff",
+                "inverse-surface": "#303032",
+                "on-secondary": "#ffffff",
+                "primary-container": "#131b2e",
+                "surface-container-lowest": "#ffffff",
+                "secondary-fixed-dim": "#91db2a",
+                "error": "#ba1a1a"
+        },
+        "borderRadius": {
+                "DEFAULT": "0.25rem",
+                "lg": "0.5rem",
+                "xl": "0.75rem",
+                "full": "9999px"
+        },
+        "spacing": {
+                "base": "4px",
+                "xl": "32px",
+                "container-margin": "20px",
+                "md": "16px",
+                "sm": "12px",
+                "xs": "8px",
+                "lg": "24px",
+                "card-gap": "16px"
+        },
+        "fontFamily": {
+                "headline-lg": [
+                        "Inter"
+                ],
+                "body-lg": [
+                        "Inter"
+                ],
+                "headline-md": [
+                        "Inter"
+                ],
+                "label-caps": [
+                        "Inter"
+                ],
+                "headline-lg-mobile": [
+                        "Inter"
+                ],
+                "metric-unit": [
+                        "Inter"
+                ],
+                "body-md": [
+                        "Inter"
+                ],
+                "display-metrics": [
+                        "Inter"
+                ]
+        },
+        "fontSize": {
+                "headline-lg": [
+                        "30px",
+                        {
+                                "lineHeight": "38px",
+                                "letterSpacing": "-0.01em",
+                                "fontWeight": "700"
+                        }
+                ],
+                "body-lg": [
+                        "18px",
+                        {
+                                "lineHeight": "28px",
+                                "fontWeight": "400"
+                        }
+                ],
+                "headline-md": [
+                        "20px",
+                        {
+                                "lineHeight": "28px",
+                                "fontWeight": "600"
+                        }
+                ],
+                "label-caps": [
+                        "12px",
+                        {
+                                "lineHeight": "16px",
+                                "letterSpacing": "0.05em",
+                                "fontWeight": "600"
+                        }
+                ],
+                "headline-lg-mobile": [
+                        "24px",
+                        {
+                                "lineHeight": "32px",
+                                "fontWeight": "700"
+                        }
+                ],
+                "metric-unit": [
+                        "14px",
+                        {
+                                "lineHeight": "20px",
+                                "fontWeight": "500"
+                        }
+                ],
+                "body-md": [
+                        "16px",
+                        {
+                                "lineHeight": "24px",
+                                "fontWeight": "400"
+                        }
+                ],
+                "display-metrics": [
+                        "48px",
+                        {
+                                "lineHeight": "56px",
+                                "letterSpacing": "-0.02em",
+                                "fontWeight": "700"
+                        }
+                ]
+        }
+},
+    },
+  }
+</script>
+<style>
+    body {
+        -webkit-tap-highlight-color: transparent;
+    }
+</style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-background antialiased pb-24 md:pb-0 pt-[72px]">
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full z-50 bg-background dark:bg-background flex justify-between items-center w-full px-container-margin py-md">
+<div class="flex items-center gap-xs">
+<div class="w-10 h-10 rounded-full bg-surface-container-high overflow-hidden">
+<img class="object-cover w-full h-full" data-alt="A professional headshot of a Nigerian user in modern lighting, bright light mode background, clear crisp details, realistic, high quality, suitable for a mobile app profile picture." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAE6vejj43kSwfGGtFbYg-wLdY00jE-U8M5XF2qUT0nztXigTCjA8q9Mgrt_WmXY3sNuJ1-5_gGtlX74gAtrVRKKqn_DBmoVpKps-l51NUdgB1EhGiFoYfDF0Cm_vPD1ecDNm5bV1m6Kaoxgbq0r1FYuzXwVB8e-eaN5Oed4z5NzKvhF88bsjJSkbfFBAqJ5MGk2nhXolrZFiZc5-61RPbjhnr-f-lLR2GpamD484AJQwMCoIoAkiDB"/>
+</div>
+<h1 class="font-headline-lg-mobile text-headline-lg-mobile text-primary dark:text-primary-fixed">Smart Electricity</h1>
+</div>
+<button class="w-10 h-10 rounded-full flex items-center justify-center bg-surface-container-high text-on-surface hover:opacity-80 transition-opacity duration-200">
+<span class="material-symbols-outlined" data-icon="notifications" style="font-variation-settings: 'FILL' 0;">notifications</span>
+</button>
+</header>
+<main class="px-container-margin max-w-4xl mx-auto space-y-lg mt-md">
+<!-- Header -->
+<section>
+<h2 class="font-headline-lg text-headline-lg text-primary">Your energy</h2>
+<p class="font-body-md text-body-md text-on-surface-variant mt-1">October insights</p>
+</section>
+<!-- Summary Cards Grid (Bento Style) -->
+<section class="grid grid-cols-2 md:grid-cols-4 gap-card-gap">
+<div class="col-span-2 md:col-span-1 bg-surface-container-low rounded-xl p-md border border-outline-variant shadow-[0px_4px_20px_rgba(15,23,42,0.05)]">
+<h3 class="font-metric-unit text-metric-unit text-on-surface-variant mb-sm">Estimated Days Left</h3>
+<div class="flex items-baseline gap-2">
+<span class="font-display-metrics text-display-metrics text-primary">12</span>
+<span class="font-body-md text-body-md text-on-surface-variant">days</span>
+</div>
+<div class="mt-sm flex items-center gap-1 text-secondary">
+<span class="material-symbols-outlined text-[16px]">trending_up</span>
+<span class="font-label-caps text-label-caps lowercase">Based on recent usage</span>
+</div>
+</div>
+<div class="col-span-1 bg-surface-container-low rounded-xl p-md border border-outline-variant flex flex-col justify-between">
+<h3 class="font-metric-unit text-metric-unit text-on-surface-variant">Monthly Spend</h3>
+<div class="mt-auto">
+<span class="font-headline-md text-headline-md text-primary">₦24,500</span>
+</div>
+</div>
+<div class="col-span-1 bg-surface-container-low rounded-xl p-md border border-outline-variant flex flex-col justify-between">
+<h3 class="font-metric-unit text-metric-unit text-on-surface-variant">Units Used</h3>
+<div class="mt-auto">
+<span class="font-headline-md text-headline-md text-primary">245 kWh</span>
+</div>
+</div>
+<div class="col-span-2 md:col-span-1 bg-surface-container-low rounded-xl p-md border border-outline-variant flex flex-col justify-between">
+<h3 class="font-metric-unit text-metric-unit text-on-surface-variant">Daily Avg</h3>
+<div class="mt-auto">
+<span class="font-headline-md text-headline-md text-primary">8.5 kWh</span>
+</div>
+</div>
+</section>
+<!-- Spending Trend Chart Placeholder -->
+<section class="bg-surface-container-low rounded-xl p-md border border-outline-variant">
+<div class="flex justify-between items-center mb-md">
+<h3 class="font-headline-md text-headline-md text-primary">Usage Trend</h3>
+<div class="flex bg-surface-variant rounded-full p-1">
+<button class="px-3 py-1 rounded-full bg-surface shadow-sm font-label-caps text-label-caps text-primary">W</button>
+<button class="px-3 py-1 rounded-full font-label-caps text-label-caps text-on-surface-variant hover:bg-surface/50">M</button>
+<button class="px-3 py-1 rounded-full font-label-caps text-label-caps text-on-surface-variant hover:bg-surface/50">Y</button>
+</div>
+</div>
+<div class="h-48 w-full bg-surface flex items-center justify-center rounded-lg border border-outline-variant relative overflow-hidden">
+<!-- Decorative pseudo-chart elements -->
+<div class="absolute inset-0 bg-[linear-gradient(to_right,#e4e2e4_1px,transparent_1px),linear-gradient(to_bottom,#e4e2e4_1px,transparent_1px)] bg-[size:40px_40px] opacity-30"></div>
+<svg class="w-full h-full text-secondary" preserveaspectratio="none" viewbox="0 0 400 100">
+<path d="M0 80 Q 50 60 100 70 T 200 40 T 300 50 T 400 20" fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="3"></path>
+<!-- Area under curve -->
+<path d="M0 80 Q 50 60 100 70 T 200 40 T 300 50 T 400 20 L 400 100 L 0 100 Z" fill="url(#grad1)" opacity="0.2"></path>
+<defs>
+<lineargradient id="grad1" x1="0%" x2="0%" y1="0%" y2="100%">
+<stop offset="0%" style="stop-color:currentColor;stop-opacity:1"></stop>
+<stop offset="100%" style="stop-color:currentColor;stop-opacity:0"></stop>
+</lineargradient>
+</defs>
+</svg>
+</div>
+</section>
+<!-- Comparison Section -->
+<section>
+<h3 class="font-headline-md text-headline-md text-primary mb-sm">Compared with last month</h3>
+<div class="grid grid-cols-2 gap-md">
+<div class="bg-surface-container-low rounded-xl p-md border border-outline-variant flex items-center gap-md">
+<div class="w-12 h-12 rounded-full bg-error-container text-on-error-container flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined" data-icon="trending_up">trending_up</span>
+</div>
+<div>
+<div class="font-metric-unit text-metric-unit text-on-surface-variant">Spending</div>
+<div class="font-headline-md text-headline-md text-error">+12%</div>
+</div>
+</div>
+<div class="bg-surface-container-low rounded-xl p-md border border-outline-variant flex items-center gap-md">
+<div class="w-12 h-12 rounded-full bg-error-container text-on-error-container flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined" data-icon="bolt">bolt</span>
+</div>
+<div>
+<div class="font-metric-unit text-metric-unit text-on-surface-variant">Units</div>
+<div class="font-headline-md text-headline-md text-error">+8%</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Insight Detail Panel -->
+<section class="bg-surface-container-low rounded-xl p-md border border-outline-variant relative overflow-hidden">
+<div class="absolute right-0 top-0 w-32 h-32 bg-secondary opacity-5 blur-3xl rounded-full translate-x-1/2 -translate-y-1/2"></div>
+<div class="flex items-start gap-md relative z-10">
+<div class="w-10 h-10 rounded-full bg-surface flex items-center justify-center shrink-0 border border-outline-variant shadow-sm text-secondary">
+<span class="material-symbols-outlined" data-icon="lightbulb" style="font-variation-settings: 'FILL' 1;">lightbulb</span>
+</div>
+<div>
+<h4 class="font-headline-md text-headline-md text-primary">Your electricity is being consumed faster</h4>
+<p class="font-body-md text-body-md text-on-surface-variant mt-2">
+                        Over the last 3 days, your average usage jumped to 11.2 kWh/day compared to your normal 8.5 kWh/day. This will reduce your estimated days remaining.
+                    </p>
+</div>
+</div>
+</section>
+<!-- AI Assistant (Phase 2 Preview) -->
+<section class="bg-primary text-on-primary rounded-xl p-md relative overflow-hidden shadow-lg mt-xl">
+<!-- Abstract background decorative element for AI feel -->
+<div class="absolute inset-0 opacity-20 pointer-events-none">
+<div class="absolute -top-20 -right-20 w-64 h-64 bg-secondary rounded-full blur-[80px]"></div>
+</div>
+<div class="relative z-10">
+<div class="flex items-center gap-sm mb-md">
+<span class="material-symbols-outlined text-secondary" data-icon="auto_awesome">auto_awesome</span>
+<h4 class="font-headline-md text-headline-md">Energy Assistant</h4>
+</div>
+<p class="font-body-md text-body-md text-inverse-primary mb-md">Ask me anything about your current usage or future estimations.</p>
+<div class="flex flex-col gap-sm">
+<button class="bg-surface/10 hover:bg-surface/20 transition-colors duration-200 text-left px-md py-sm rounded-lg border border-surface/20 font-metric-unit text-metric-unit flex justify-between items-center group">
+                        Why did my electricity finish faster?
+                        <span class="material-symbols-outlined text-secondary opacity-0 group-hover:opacity-100 transition-opacity">arrow_forward</span>
+</button>
+<button class="bg-surface/10 hover:bg-surface/20 transition-colors duration-200 text-left px-md py-sm rounded-lg border border-surface/20 font-metric-unit text-metric-unit flex justify-between items-center group">
+                        When will I need another token?
+                        <span class="material-symbols-outlined text-secondary opacity-0 group-hover:opacity-100 transition-opacity">arrow_forward</span>
+</button>
+</div>
+</div>
+</section>
+</main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 w-full z-50 flex justify-around items-center px-4 py-2 border-t border-outline-variant dark:border-outline bg-surface dark:bg-surface-container-highest md:hidden shadow-sm">
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-outline-variant font-label-caps text-label-caps hover:bg-surface-container-low dark:hover:bg-surface-container-high scale-95 active:scale-90 transition-transform duration-150 p-2 rounded-lg w-16 h-14" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="home" style="font-variation-settings: 'FILL' 0;">home</span>
+<span>Home</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-outline-variant font-label-caps text-label-caps hover:bg-surface-container-low dark:hover:bg-surface-container-high scale-95 active:scale-90 transition-transform duration-150 p-2 rounded-lg w-16 h-14" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="history" style="font-variation-settings: 'FILL' 0;">history</span>
+<span>Activity</span>
+</a>
+<a class="flex flex-col items-center justify-center text-secondary dark:text-secondary-fixed font-bold font-label-caps text-label-caps hover:bg-surface-container-low dark:hover:bg-surface-container-high scale-95 active:scale-90 transition-transform duration-150 p-2 rounded-lg w-16 h-14 relative" href="#">
+<!-- Active indicator dot -->
+<div class="absolute top-1 right-2 w-1.5 h-1.5 bg-secondary rounded-full"></div>
+<span class="material-symbols-outlined mb-1 text-secondary" data-icon="analytics" style="font-variation-settings: 'FILL' 1;">analytics</span>
+<span>Insights</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-outline-variant font-label-caps text-label-caps hover:bg-surface-container-low dark:hover:bg-surface-container-high scale-95 active:scale-90 transition-transform duration-150 p-2 rounded-lg w-16 h-14" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="person" style="font-variation-settings: 'FILL' 0;">person</span>
+<span>Profile</span>
+</a>
+</nav>
+</body></html>
