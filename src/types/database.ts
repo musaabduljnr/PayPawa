@@ -476,7 +476,16 @@ export interface Database {
           body: string;
           is_read: boolean;
           data: Json | null;
+          meter_id: string | null;
+          severity: string | null;
+          read_at: string | null;
+          expires_at: string | null;
+          delivery_status: string | null;
+          delivery_channel: string | null;
+          deduplication_key: string | null;
+          related_transaction_id: string | null;
           created_at: string;
+          updated_at: string | null;
         };
         Insert: {
           id?: string;
@@ -486,11 +495,177 @@ export interface Database {
           body: string;
           is_read?: boolean;
           data?: Json | null;
+          meter_id?: string | null;
+          severity?: string | null;
+          read_at?: string | null;
+          expires_at?: string | null;
+          delivery_status?: string | null;
+          delivery_channel?: string | null;
+          deduplication_key?: string | null;
+          related_transaction_id?: string | null;
           created_at?: string;
+          updated_at?: string | null;
         };
         Update: {
           is_read?: boolean;
           data?: Json | null;
+          meter_id?: string | null;
+          severity?: string | null;
+          read_at?: string | null;
+          expires_at?: string | null;
+          delivery_status?: string | null;
+          delivery_channel?: string | null;
+          deduplication_key?: string | null;
+          related_transaction_id?: string | null;
+          updated_at?: string | null;
+        };
+        Relationships: [];
+      };
+      notification_preferences: {
+        Row: {
+          user_id: string;
+          low_balance_enabled: boolean;
+          unusual_usage_enabled: boolean;
+          recharge_reminder_enabled: boolean;
+          purchase_updates_enabled: boolean;
+          wallet_funding_enabled: boolean;
+          ai_insights_enabled: boolean;
+          channel_in_app: boolean;
+          channel_push: boolean;
+          channel_email: boolean;
+          channel_sms: boolean;
+          updated_at: string;
+        };
+        Insert: {
+          user_id: string;
+          low_balance_enabled?: boolean;
+          unusual_usage_enabled?: boolean;
+          recharge_reminder_enabled?: boolean;
+          purchase_updates_enabled?: boolean;
+          wallet_funding_enabled?: boolean;
+          ai_insights_enabled?: boolean;
+          channel_in_app?: boolean;
+          channel_push?: boolean;
+          channel_email?: boolean;
+          channel_sms?: boolean;
+          updated_at?: string;
+        };
+        Update: {
+          low_balance_enabled?: boolean;
+          unusual_usage_enabled?: boolean;
+          recharge_reminder_enabled?: boolean;
+          purchase_updates_enabled?: boolean;
+          wallet_funding_enabled?: boolean;
+          ai_insights_enabled?: boolean;
+          channel_in_app?: boolean;
+          channel_push?: boolean;
+          channel_email?: boolean;
+          channel_sms?: boolean;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      system_alert_events: {
+        Row: {
+          id: string;
+          severity: 'low' | 'medium' | 'high' | 'critical';
+          category: string;
+          event_type: string;
+          message: string;
+          correlation_id: string | null;
+          user_id: string | null;
+          meter_id: string | null;
+          transaction_id: string | null;
+          payment_attempt_id: string | null;
+          metadata: Json | null;
+          is_resolved: boolean;
+          resolved_at: string | null;
+          resolved_by_user_id: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          severity: 'low' | 'medium' | 'high' | 'critical';
+          category: string;
+          event_type: string;
+          message: string;
+          correlation_id?: string | null;
+          user_id?: string | null;
+          meter_id?: string | null;
+          transaction_id?: string | null;
+          payment_attempt_id?: string | null;
+          metadata?: Json | null;
+          is_resolved?: boolean;
+          resolved_at?: string | null;
+          resolved_by_user_id?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          is_resolved?: boolean;
+          resolved_at?: string | null;
+          resolved_by_user_id?: string | null;
+        };
+        Relationships: [];
+      };
+      provider_health_telemetry: {
+        Row: {
+          id: string;
+          provider_name: string;
+          service_type: string;
+          status: string;
+          latency_ms: number;
+          error_code: string | null;
+          error_message: string | null;
+          endpoint: string | null;
+          correlation_id: string | null;
+          transaction_id: string | null;
+          payment_attempt_id: string | null;
+          metadata: Json | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          provider_name: string;
+          service_type?: string;
+          status: string;
+          latency_ms?: number;
+          error_code?: string | null;
+          error_message?: string | null;
+          endpoint?: string | null;
+          correlation_id?: string | null;
+          transaction_id?: string | null;
+          payment_attempt_id?: string | null;
+          metadata?: Json | null;
+          created_at?: string;
+        };
+        Update: {
+          status?: string;
+          latency_ms?: number;
+          error_code?: string | null;
+          error_message?: string | null;
+          metadata?: Json | null;
+        };
+        Relationships: [];
+      };
+      rate_limits: {
+        Row: {
+          id: string;
+          identifier: string;
+          action: string;
+          window_start: string;
+          count: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          identifier: string;
+          action: string;
+          window_start: string;
+          count?: number;
+          created_at?: string;
+        };
+        Update: {
+          count?: number;
         };
         Relationships: [];
       };
@@ -520,6 +695,273 @@ export interface Database {
           created_at?: string;
         };
         Update: never;
+        Relationships: [];
+      };
+      consumption_events: {
+        Row: {
+          id: string;
+          user_id: string;
+          meter_id: string | null;
+          transaction_id: string | null;
+          event_type: 'PURCHASE' | 'METER_READING' | 'ESTIMATED_USAGE' | 'ADJUSTMENT';
+          units: number | null;
+          units_source: 'PROVIDER' | 'USER_REPORTED' | 'METER' | 'IOT' | 'ESTIMATED' | 'INFERRED' | 'UNAVAILABLE';
+          amount_kobo: number;
+          currency: string;
+          confidence: number;
+          occurred_at: string;
+          metadata: Json | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          meter_id?: string | null;
+          transaction_id?: string | null;
+          event_type: 'PURCHASE' | 'METER_READING' | 'ESTIMATED_USAGE' | 'ADJUSTMENT';
+          units?: number | null;
+          units_source?: 'PROVIDER' | 'USER_REPORTED' | 'METER' | 'IOT' | 'ESTIMATED' | 'INFERRED' | 'UNAVAILABLE';
+          amount_kobo?: number;
+          currency?: string;
+          confidence?: number;
+          occurred_at: string;
+          metadata?: Json | null;
+          created_at?: string;
+        };
+        Update: {
+          units?: number | null;
+          units_source?: 'PROVIDER' | 'USER_REPORTED' | 'METER' | 'IOT' | 'ESTIMATED' | 'INFERRED' | 'UNAVAILABLE';
+          confidence?: number;
+          metadata?: Json | null;
+        };
+        Relationships: [];
+      };
+      meter_readings: {
+        Row: {
+          id: string;
+          user_id: string;
+          meter_id: string;
+          reading_value: number;
+          unit: string;
+          reading_type: 'cumulative' | 'interval' | 'delta';
+          source: 'PROVIDER' | 'USER_REPORTED' | 'METER' | 'IOT' | 'ESTIMATED' | 'INFERRED' | 'UNAVAILABLE';
+          is_anomalous: boolean;
+          anomaly_reason: string | null;
+          recorded_at: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          meter_id: string;
+          reading_value: number;
+          unit?: string;
+          reading_type?: 'cumulative' | 'interval' | 'delta';
+          source?: 'PROVIDER' | 'USER_REPORTED' | 'METER' | 'IOT' | 'ESTIMATED' | 'INFERRED' | 'UNAVAILABLE';
+          is_anomalous?: boolean;
+          anomaly_reason?: string | null;
+          recorded_at: string;
+          created_at?: string;
+        };
+        Update: {
+          reading_value?: number;
+          is_anomalous?: boolean;
+          anomaly_reason?: string | null;
+        };
+        Relationships: [];
+      };
+      consumption_analytics_snapshots: {
+        Row: {
+          id: string;
+          user_id: string;
+          meter_id: string | null;
+          period: '7d' | '30d' | '90d' | '1y' | 'all';
+          metrics: Json;
+          calculated_at: string;
+          data_through: string;
+          version: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          meter_id?: string | null;
+          period: '7d' | '30d' | '90d' | '1y' | 'all';
+          metrics: Json;
+          calculated_at?: string;
+          data_through: string;
+          version?: string;
+        };
+        Update: {
+          metrics?: Json;
+          calculated_at?: string;
+          data_through?: string;
+        };
+        Relationships: [];
+      };
+      ai_conversations: {
+        Row: {
+          id: string;
+          user_id: string;
+          meter_id: string | null;
+          title: string;
+          metadata: Json;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          meter_id?: string | null;
+          title?: string;
+          metadata?: Json;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          title?: string;
+          metadata?: Json;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      ai_messages: {
+        Row: {
+          id: string;
+          conversation_id: string;
+          user_id: string;
+          meter_id: string | null;
+          role: 'user' | 'assistant' | 'system';
+          content: string;
+          structured_response: Json | null;
+          insight_type: string | null;
+          confidence: string | null;
+          evidence: Json | null;
+          recommendations: Json | null;
+          limitations: Json | null;
+          is_helpful: boolean | null;
+          feedback_reason: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          conversation_id: string;
+          user_id: string;
+          meter_id?: string | null;
+          role: 'user' | 'assistant' | 'system';
+          content: string;
+          structured_response?: Json | null;
+          insight_type?: string | null;
+          confidence?: string | null;
+          evidence?: Json | null;
+          recommendations?: Json | null;
+          limitations?: Json | null;
+          is_helpful?: boolean | null;
+          feedback_reason?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          is_helpful?: boolean | null;
+          feedback_reason?: string | null;
+        };
+        Relationships: [];
+      };
+      ai_audit_logs: {
+        Row: {
+          id: string;
+          user_id: string;
+          meter_id: string | null;
+          request_type: string;
+          provider: string;
+          model: string;
+          latency_ms: number;
+          tokens_in: number;
+          tokens_out: number;
+          estimated_cost_usd: number;
+          success: boolean;
+          error_message: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          meter_id?: string | null;
+          request_type: string;
+          provider: string;
+          model: string;
+          latency_ms?: number;
+          tokens_in?: number;
+          tokens_out?: number;
+          estimated_cost_usd?: number;
+          success?: boolean;
+          error_message?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          success?: boolean;
+        };
+        Relationships: [];
+      };
+      ai_rate_limits: {
+        Row: {
+          user_id: string;
+          minute_window_start: string;
+          minute_request_count: number;
+          daily_window_start: string;
+          daily_request_count: number;
+          updated_at: string;
+        };
+        Insert: {
+          user_id: string;
+          minute_window_start?: string;
+          minute_request_count?: number;
+          daily_window_start?: string;
+          daily_request_count?: number;
+          updated_at?: string;
+        };
+        Update: {
+          minute_window_start?: string;
+          minute_request_count?: number;
+          daily_window_start?: string;
+          daily_request_count?: number;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      ai_forecast_accuracy_logs: {
+        Row: {
+          id: string;
+          user_id: string;
+          meter_id: string;
+          predicted_window_min_days: number;
+          predicted_window_max_days: number;
+          prediction_timestamp: string;
+          actual_purchase_timestamp: string | null;
+          actual_purchase_id: string | null;
+          actual_interval_days: number | null;
+          error_days: number | null;
+          confidence: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          meter_id: string;
+          predicted_window_min_days: number;
+          predicted_window_max_days: number;
+          prediction_timestamp?: string;
+          actual_purchase_timestamp?: string | null;
+          actual_purchase_id?: string | null;
+          actual_interval_days?: number | null;
+          error_days?: number | null;
+          confidence?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          actual_purchase_timestamp?: string | null;
+          actual_purchase_id?: string | null;
+          actual_interval_days?: number | null;
+          error_days?: number | null;
+        };
         Relationships: [];
       };
     };

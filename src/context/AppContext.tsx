@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   AuthService,
   EnergyService,
@@ -9,7 +9,21 @@ import {
   MetersService,
   ElectricityService,
   NotificationsService,
+  NotificationPreferencesService,
+  SmartAlertsService,
+  ConsumptionAnalyticsService,
+  MeterReadingService,
+  RecordMeterReadingResult,
+  EnergyIntelligenceService,
+  LoggerService,
+  SupportService,
 } from '@/services';
+import type {
+  AppNotification,
+  NotificationPreferences,
+} from '@/types/notifications';
+import { DEFAULT_NOTIFICATION_PREFERENCES } from '@/types/notifications';
+export type { AppNotification, NotificationPreferences };
 import type { 
   UserProfile, 
   EnergyProfile, 
@@ -17,8 +31,21 @@ import type {
   ApplianceItemInput,
   AccountTypeEnum 
 } from '@/types/auth';
+import type {
+  ConsumptionAnalyticsResponse,
+  ApplianceContributionEstimate,
+  MeterReading,
+} from '@/types/consumption';
+import type {
+  AIChatMessage,
+  SuggestedQuestion,
+  AIQueryOptions,
+  StructuredInsightsAnalytics,
+  AIEngineHealthStatus,
+} from '@/types/ai';
 import type { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/services/supabase';
+import { AIAnalyticsEngine } from '@/services/ai/ai-analytics-engine.service';
 
 export interface Meter {
   id: string;
@@ -36,21 +63,15 @@ export interface Transaction {
   title: string;
   type: 'purchase' | 'funding';
   date: string;
+  createdAt?: string;
   amount: number;
   units?: number;
   token?: string;
   status: 'Completed' | 'Pending' | 'Failed';
   reference: string;
   meterNumber?: string;
-}
-
-export interface AppNotification {
-  id: string;
-  type: 'purchase' | 'funding' | 'alert' | 'info';
-  title: string;
-  body: string;
-  read: boolean;
-  createdAt: string;
+  description?: string;
+  errorMessage?: string;
 }
 
 interface AppContextProps {
@@ -73,19 +94,26 @@ interface AppContextProps {
   meters: Meter[];
   activeMeterId: string | null;
   activeMeter?: Meter;
+  isSwitchingMeter: boolean;
   transactions: Transaction[];
   notifications: AppNotification[];
   unreadCount: number;
+  notificationPreferences: NotificationPreferences;
+  updateNotificationPreferences: (
+    partial: Partial<Omit<NotificationPreferences, 'userId'>>
+  ) => Promise<void>;
+  refreshNotifications: (overrideMeterId?: string | null) => Promise<void>;
 
   // Actions
-  login: (email: string, password?: string) => Promise<{ success: boolean; error?: string; profile?: UserProfile | null }>;
+  login: (email: string, password?: string) => Promise<{ success: boolean; error?: string; profile?: UserProfile | null; isOnboarded?: boolean }>;
   signup: (
     name: string,
     email: string,
     password?: string,
     phone?: string,
     accountType?: AccountTypeEnum
-  ) => Promise<{ success: boolean; error?: string; profile?: UserProfile | null }>;
+  ) => Promise<{ success: boolean; error?: string; profile?: UserProfile | null; isOnboarded?: boolean }>;
+  resetPassword: (email: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
   completeOnboarding: (
     profileData: {
@@ -134,12 +162,39 @@ interface AppContextProps {
   }>;
   refreshWallet: () => Promise<void>;
   refreshTransactions: () => Promise<void>;
+  consumptionAnalytics: ConsumptionAnalyticsResponse | null;
+  aiAnalytics: StructuredInsightsAnalytics | null;
+  aiEngineStatus: AIEngineHealthStatus;
+  checkAIEngineHealth: () => Promise<{ status: AIEngineHealthStatus; provider: string; model: string; message: string; latencyMs: number }>;
+  applianceEstimates: ApplianceContributionEstimate[];
+  refreshAnalytics: (period?: '7d' | '30d' | '90d' | '1y') => Promise<void>;
+  recordMeterReading: (
+    meterId: string,
+    readingValue: number,
+    recordedAt?: string
+  ) => Promise<RecordMeterReadingResult>;
+  askEnergyAssistant: (
+    question: string,
+    options?: Partial<AIQueryOptions>
+  ) => Promise<{ success: boolean; message: AIChatMessage; errorMessage?: string }>;
+  suggestedQuestions: SuggestedQuestion[];
+  aiMessages: AIChatMessage[];
+  isAiLoading: boolean;
+  recordAiFeedback: (messageId: string, isHelpful: boolean, reason?: string) => Promise<boolean>;
+  clearAiChat: () => void;
   buyElectricity: (
     amount: number,
     phone?: string
   ) => Promise<{ success: boolean; token?: string; transaction?: Transaction; errorMessage?: string }>;
   markNotificationRead: (id: string) => void;
   markAllNotificationsRead: () => void;
+  addNotification: (notif: {
+    type: AppNotification['type'];
+    title: string;
+    body: string;
+  }) => void;
+  unreadSupportCount: number;
+  refreshSupportCount: () => Promise<void>;
 }
 
 const AppContext = createContext<AppContextProps | undefined>(undefined);
@@ -150,6 +205,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [energyProfile, setEnergyProfile] = useState<EnergyProfile | null>(null);
   const [appliances, setAppliances] = useState<UserAppliance[]>([]);
+  const [consumptionAnalytics, setConsumptionAnalytics] = useState<ConsumptionAnalyticsResponse | null>(null);
+  const [aiAnalytics, setAiAnalytics] = useState<StructuredInsightsAnalytics | null>(null);
+  const [aiEngineStatus, setAiEngineStatus] = useState<AIEngineHealthStatus>('CONNECTED');
+  const analyticsReqSeqRef = useRef<number>(0);
+  const notifReqSeqRef = useRef<number>(0);
+  const questionsReqSeqRef = useRef<number>(0);
+  const meterAbortControllerRef = useRef<AbortController | null>(null);
+  const [isSwitchingMeter, setIsSwitchingMeter] = useState<boolean>(false);
+  const [aiMessages, setAiMessages] = useState<AIChatMessage[]>([]);
+  const [suggestedQuestions, setSuggestedQuestions] = useState<SuggestedQuestion[]>([]);
+  const [isAiLoading, setIsAiLoading] = useState(false);
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
 
   // Fallback / Display properties derived from Profile or local state
@@ -166,8 +232,34 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [transactions, setTransactions] = useState<Transaction[]>([]);
 
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [notificationPreferences, setNotificationPreferences] = useState<NotificationPreferences>({
+    userId: '',
+    ...DEFAULT_NOTIFICATION_PREFERENCES,
+  });
 
-  const unreadCount = notifications.filter((n) => !n.read).length;
+  // Authoritative unread count dynamically scoped to active meter
+  const unreadCount = useMemo(() => {
+    return notifications.filter(
+      (n) => !n.read && (n.meterId === null || n.meterId === undefined || n.meterId === activeMeterId)
+    ).length;
+  }, [notifications, activeMeterId]);
+
+  // Support replies unread count
+  const [unreadSupportCount, setUnreadSupportCount] = useState<number>(0);
+
+  const refreshSupportCount = useCallback(async () => {
+    const activeUserId = user?.id || session?.user?.id;
+    if (!activeUserId) {
+      setUnreadSupportCount(0);
+      return;
+    }
+    try {
+      const count = await SupportService.getUnreadSupportCount();
+      setUnreadSupportCount(count);
+    } catch (e) {
+      console.warn('[AppContext] Error fetching unread support count:', e);
+    }
+  }, [user?.id, session?.user?.id]);
 
   // ── Sync User & Profile Data ────────────────────────
   const syncProfileData = useCallback(async (userId: string) => {
@@ -235,12 +327,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             title: item.title,
             type: item.type === 'funding' ? 'funding' : 'purchase',
             date: item.dateFormatted,
+            createdAt: item.createdAt,
             amount: item.amountNaira,
             units: item.unitsKwh,
             token: item.token,
             status: item.status,
             reference: item.reference,
             meterNumber: item.meterNumber,
+            description: item.description,
           }));
           setTransactions(mappedTx);
         } else {
@@ -250,26 +344,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setTransactions([]);
       }
 
-      // Fetch notifications from Supabase
-      const { data: notifData } = await supabase
-        .from('notifications')
-        .select('*')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false });
-
-      if (notifData && notifData.length > 0) {
-        setNotifications(
-          notifData.map((n) => ({
-            id: n.id,
-            type: n.type as any,
-            title: n.title,
-            body: n.body,
-            read: n.is_read,
-            createdAt: n.created_at,
-          }))
-        );
-      } else {
-        setNotifications([]);
+      // Fetch notification preferences and meter-isolated notifications
+      try {
+        const [prefs, fetchedNotifs] = await Promise.all([
+          NotificationPreferencesService.getPreferences(userId),
+          NotificationsService.getNotifications(userId, activeMeterId),
+        ]);
+        setNotificationPreferences(prefs);
+        setNotifications(fetchedNotifs);
+      } catch (err) {
+        console.warn('[AppContext.syncProfileData] Error loading notifications:', err);
       }
     } catch (err) {
       console.warn('[AppContext.syncProfileData] Error syncing profile:', err);
@@ -336,7 +420,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setLocalEmail(res.profile.email);
       }
       await syncProfileData(res.user.id);
-      return { success: true, profile: res.profile };
+      const eProfile = await EnergyService.getEnergyProfile(res.user.id);
+      const userIsOnboarded = !!res.profile?.onboarding_completed || !!res.profile?.is_onboarded || !!eProfile;
+      return { success: true, profile: res.profile, isOnboarded: userIsOnboarded };
     }
 
     return { success: false, error: res.error };
@@ -366,10 +452,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setLocalEmail(res.profile.email);
       }
       await syncProfileData(res.user.id);
-      return { success: true, profile: res.profile };
+      const eProfile = await EnergyService.getEnergyProfile(res.user.id);
+      const userIsOnboarded = !!res.profile?.onboarding_completed || !!res.profile?.is_onboarded || !!eProfile;
+      return { success: true, profile: res.profile, isOnboarded: userIsOnboarded };
     }
 
     return { success: false, error: res.error };
+  };
+
+  const resetPassword = async (email: string) => {
+    return AuthService.resetPasswordForEmail(email);
   };
 
   const logout = async () => {
@@ -522,9 +614,120 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return newMeter;
   };
 
-  const selectMeter = (id: string) => {
+  const refreshNotifications = useCallback(async (overrideMeterId?: string | null) => {
+    const activeUserId = user?.id || session?.user?.id;
+    if (!activeUserId) return;
+    const reqSeq = ++notifReqSeqRef.current;
+    const targetMeterId = overrideMeterId !== undefined ? overrideMeterId : activeMeterId;
+    try {
+      const items = await NotificationsService.getNotifications(activeUserId, targetMeterId);
+      if (reqSeq === notifReqSeqRef.current) {
+        setNotifications(items);
+      }
+    } catch (e) {
+      console.warn('[AppContext] Error refreshing notifications:', e);
+    }
+  }, [user?.id, session?.user?.id, activeMeterId]);
+
+  const refreshSuggestedQuestions = useCallback(async (overrideMeterId?: string | null) => {
+    const activeUserId = user?.id || session?.user?.id;
+    if (!activeUserId) return;
+    const reqSeq = ++questionsReqSeqRef.current;
+    const targetMeterId = overrideMeterId !== undefined ? overrideMeterId : (activeMeterId || null);
+    try {
+      const questions = await EnergyIntelligenceService.getSuggestedQuestions(activeUserId, targetMeterId);
+      if (reqSeq === questionsReqSeqRef.current) {
+        setSuggestedQuestions(questions);
+      }
+    } catch (e) {
+      console.warn('[AppContext] Could not refresh suggested questions:', e);
+    }
+  }, [user?.id, session?.user?.id, activeMeterId]);
+
+  const refreshAnalytics = useCallback(async (
+    period: '7d' | '30d' | '90d' | '1y' = '30d',
+    overrideMeterId?: string | null
+  ) => {
+    const activeUserId = user?.id || session?.user?.id;
+    if (!activeUserId) return;
+    const reqSeq = ++analyticsReqSeqRef.current;
+    const effectiveMeterId = overrideMeterId !== undefined ? overrideMeterId : (activeMeterId || null);
+    try {
+      const [analytics, aiResult] = await Promise.all([
+        ConsumptionAnalyticsService.getConsumptionAnalytics(
+          activeUserId,
+          effectiveMeterId,
+          period
+        ),
+        AIAnalyticsEngine.analyzeMeterData(
+          activeUserId,
+          effectiveMeterId,
+          period
+        ).catch((err) => {
+          console.warn('[AppContext] AI Analytics calculation encountered error:', err);
+          return null;
+        }),
+      ]);
+      if (reqSeq === analyticsReqSeqRef.current) {
+        setConsumptionAnalytics(analytics);
+        if (aiResult) {
+          setAiAnalytics(aiResult);
+        }
+        setIsSwitchingMeter(false);
+
+        // Non-blocking background Smart Alert evaluation for active meter
+        if (effectiveMeterId) {
+          const meterObj = meters.find((m) => m.id === effectiveMeterId);
+          SmartAlertsService.evaluateMeterAlerts({
+            userId: activeUserId,
+            meterId: effectiveMeterId,
+            meterNumber: meterObj?.number,
+            meterNickname: meterObj?.name,
+            consumptionAnalytics: analytics,
+            actualRemainingKwh: null,
+            estimatedRemainingKwh: (analytics.consumption as any)?.remainingUnitsKwh || null,
+            appliancesCount: appliances.length,
+          }).then((newAlerts) => {
+            if (newAlerts && newAlerts.length > 0) {
+              setNotifications((prev) => [...newAlerts, ...prev]);
+            }
+          }).catch((e) => console.warn('[AppContext] Smart alerts evaluation error:', e));
+        }
+      }
+    } catch (err) {
+      console.error('Error refreshing consumption analytics:', err);
+      if (reqSeq === analyticsReqSeqRef.current) {
+        setIsSwitchingMeter(false);
+      }
+    }
+  }, [user?.id, session?.user?.id, activeMeterId, meters, appliances.length]);
+
+  const selectMeter = useCallback((id: string) => {
+    LoggerService.info('meter-manager', 'meter.switched', {
+      userId: user?.id || session?.user?.id,
+      meterId: id,
+      metadata: { previousMeterId: activeMeterId, newMeterId: id },
+    });
+
+    // 1. Cancel in-flight meter operations immediately
+    if (meterAbortControllerRef.current) {
+      meterAbortControllerRef.current.abort();
+    }
+    meterAbortControllerRef.current = new AbortController();
+
+    // 2. Set authoritative switching state & active meter ID
+    setIsSwitchingMeter(true);
     setActiveMeterId(id);
-  };
+
+    // 3. Invalidate old meter analytics snapshot immediately so stale meter numbers never show
+    setConsumptionAnalytics(null);
+    setAiAnalytics(null);
+
+    // 4. Immediately refresh notifications, questions, and analytics strictly scoped to the newly selected meter
+    refreshNotifications(id);
+    refreshSuggestedQuestions(id);
+    refreshAnalytics('30d', id);
+  }, [activeMeterId, user?.id, session?.user?.id, refreshNotifications, refreshSuggestedQuestions, refreshAnalytics]);
 
   const renameMeter = (id: string, name: string) => {
     MetersService.renameMeter('current-user', id, name);
@@ -583,12 +786,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           title: item.title,
           type: item.type === 'funding' ? 'funding' : 'purchase',
           date: item.dateFormatted,
+          createdAt: item.createdAt,
           amount: item.amountNaira,
           units: item.unitsKwh,
           token: item.token,
           status: item.status,
           reference: item.reference,
           meterNumber: item.meterNumber,
+          description: item.description,
         }));
         setTransactions(mappedTx);
       }
@@ -596,6 +801,143 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       console.error('Error refreshing transactions:', e);
     }
   }, [user?.id, session?.user?.id]);
+
+  // ── Appliance Contribution Estimates ─────────────────
+  const applianceEstimates = useMemo(() => {
+    return ConsumptionAnalyticsService.getApplianceEstimates(appliances);
+  }, [appliances]);
+
+  // ── AI Engine Health Check ─────────────────────────
+  const checkAIEngineHealth = useCallback(async () => {
+    const health = await AIAnalyticsEngine.checkHealth();
+    setAiEngineStatus(health.status);
+    return health;
+  }, []);
+
+  // ── Record Manual Meter Reading ──────────────────────
+  const recordMeterReading = useCallback(async (
+    meterId: string,
+    readingValue: number,
+    recordedAt?: string
+  ) => {
+    const activeUserId = user?.id || session?.user?.id;
+    if (!activeUserId) {
+      return { success: false, errorMessage: 'User must be signed in.' };
+    }
+    const result = await MeterReadingService.recordReading(activeUserId, meterId, readingValue, recordedAt);
+    if (result.success) {
+      await refreshAnalytics();
+    }
+    return result;
+  }, [user?.id, session?.user?.id, refreshAnalytics]);
+
+  // ── Ask AI Energy Assistant ──────────────────────────
+  const askEnergyAssistant = useCallback(async (
+    question: string,
+    options?: Partial<AIQueryOptions>
+  ) => {
+    if (isAiLoading) {
+      return {
+        success: false,
+        message: {
+          id: `MSG-${Date.now()}`,
+          conversationId: `CONV-${Date.now()}`,
+          userId: 'busy',
+          meterId: activeMeterId || null,
+          role: 'assistant' as const,
+          content: 'Please wait for the previous question to finish generating.',
+          createdAt: new Date().toISOString(),
+        },
+        errorMessage: 'Assistant is busy.',
+      };
+    }
+
+    const activeUserId = user?.id || session?.user?.id;
+    if (!activeUserId) {
+      const errMessage: AIChatMessage = {
+        id: `MSG-${Date.now()}`,
+        conversationId: `CONV-${Date.now()}`,
+        userId: 'anonymous',
+        meterId: activeMeterId || null,
+        role: 'assistant',
+        content: 'Please sign in to access personalized energy intelligence.',
+        createdAt: new Date().toISOString(),
+      };
+      return { success: false, message: errMessage, errorMessage: 'User must be signed in.' };
+    }
+
+    // Build short-term conversational context (last 4 message turns)
+    const history = aiMessages.slice(-4).map((m) => ({
+      role: (m.role === 'user' ? 'user' : 'assistant') as 'user' | 'assistant',
+      content: m.content,
+    }));
+
+    // Add user message to conversation list
+    const userMsg: AIChatMessage = {
+      id: `USER-MSG-${Date.now()}`,
+      conversationId: options?.conversationId || `CONV-${Date.now()}`,
+      userId: activeUserId,
+      meterId: activeMeterId || null,
+      role: 'user',
+      content: question,
+      createdAt: new Date().toISOString(),
+    };
+
+    setAiMessages((prev) => [...prev, userMsg]);
+    setIsAiLoading(true);
+
+    try {
+      const result = await EnergyIntelligenceService.askAssistant(activeUserId, {
+        question,
+        meterId: activeMeterId || null,
+        period: options?.period || '30d',
+        conversationId: options?.conversationId || userMsg.conversationId,
+        forceDeterministic: options?.forceDeterministic,
+        history: options?.history || history,
+      });
+
+      setAiMessages((prev) => [...prev, result.message]);
+      return result;
+    } catch (err: any) {
+      const fallbackMsg: AIChatMessage = {
+        id: `MSG-${Date.now()}`,
+        conversationId: userMsg.conversationId,
+        userId: activeUserId,
+        meterId: activeMeterId || null,
+        role: 'assistant',
+        content: 'Unable to complete energy analysis at this moment. Please try again.',
+        createdAt: new Date().toISOString(),
+      };
+      setAiMessages((prev) => [...prev, fallbackMsg]);
+      return { success: false, message: fallbackMsg, errorMessage: err?.message };
+    } finally {
+      setIsAiLoading(false);
+    }
+  }, [user?.id, session?.user?.id, activeMeterId]);
+
+  const recordAiFeedback = useCallback(async (
+    messageId: string,
+    isHelpful: boolean,
+    reason?: string
+  ) => {
+    setAiMessages((prev) =>
+      prev.map((m) => (m.id === messageId ? { ...m, isHelpful, feedbackReason: reason } : m))
+    );
+    return EnergyIntelligenceService.recordFeedback({ messageId, isHelpful, reason });
+  }, []);
+
+  const clearAiChat = useCallback(() => {
+    setAiMessages([]);
+  }, []);
+
+  // Trigger analytics, suggested questions & support count refresh when active meter or transactions change
+  useEffect(() => {
+    if ((user?.id || session?.user?.id) && !isSwitchingMeter) {
+      refreshAnalytics();
+      refreshSuggestedQuestions();
+      refreshSupportCount();
+    }
+  }, [user?.id, session?.user?.id, activeMeterId, transactions.length, isSwitchingMeter, refreshAnalytics, refreshSuggestedQuestions, refreshSupportCount]);
 
   // ── Realtime Wallet & Ledger Listener ───────────────
   useEffect(() => {
@@ -721,6 +1063,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         title: 'Token Purchase',
         type: 'purchase',
         date: 'Today, ' + now,
+        createdAt: new Date().toISOString(),
         amount,
         units: result.unitsKwh,
         token: result.token,
@@ -735,18 +1078,57 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         {
           id: 'notif_' + Date.now(),
           type: 'purchase',
+          severity: 'success',
           title: 'Token Purchase Successful ⚡',
-          body: `₦${amount.toLocaleString()} token purchased. ${result.unitsKwh || ''} kWh credited. Token: ${result.token}.`,
+          body: `₦${amount.toLocaleString()} token purchased. ${result.unitsKwh ? result.unitsKwh + ' kWh credited. ' : ''}Token: ${result.token}.`,
           read: false,
           createdAt: new Date().toISOString(),
         },
         ...prev,
       ]);
 
+      // Immediate cache invalidation & re-calculation
+      if (user?.id) {
+        AIAnalyticsEngine.invalidateUserCache(user.id);
+      }
+      refreshTransactions();
+      refreshAnalytics();
+      refreshSuggestedQuestions();
+
       return { success: true, token: result.token, transaction: newTx };
     }
 
-    // If failed, re-sync wallet in case of refund
+    // If failed, record failed transaction in activity and re-sync wallet in case of refund
+    const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const failedTx: Transaction = {
+      id: 'failed_purchase_' + Date.now(),
+      title: 'Token Purchase (Failed)',
+      type: 'purchase',
+      date: 'Today, ' + now,
+      createdAt: new Date().toISOString(),
+      amount,
+      status: 'Failed',
+      reference: result.reference || 'FAILED-' + Date.now(),
+      meterNumber: currentActive ? currentActive.number : sanitizedMeterNumber,
+      description: result.errorMessage || 'Purchase failed',
+      errorMessage: result.errorMessage,
+    };
+
+    setTransactions((prev) => [failedTx, ...prev]);
+
+    setNotifications((prev) => [
+      {
+        id: 'notif_' + Date.now(),
+        type: 'alert',
+        severity: 'critical',
+        title: 'Token Purchase Failed ⚠️',
+        body: `₦${amount.toLocaleString()} purchase could not be completed. ${result.errorMessage || 'Please try again.'}`,
+        read: false,
+        createdAt: new Date().toISOString(),
+      },
+      ...prev,
+    ]);
+
     if (user?.id) {
       supabase
         .from('wallet_accounts')
@@ -756,6 +1138,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         .then(({ data }) => {
           if (data) setWalletBalance(data.balance_kobo / 100);
         });
+      refreshTransactions();
+      refreshAnalytics();
     }
 
     return {
@@ -765,18 +1149,68 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // ── Notifications Actions ───────────────────────────
+  const updateNotificationPreferences = useCallback(
+    async (partial: Partial<Omit<NotificationPreferences, 'userId'>>) => {
+      const activeUserId = user?.id || session?.user?.id;
+      if (!activeUserId) return;
+      const updated = await NotificationPreferencesService.updatePreferences(activeUserId, partial);
+      setNotificationPreferences(updated);
+    },
+    [user?.id, session?.user?.id]
+  );
+
   const markNotificationRead = (id: string) => {
-    NotificationsService.markRead(id);
+    const activeUserId = user?.id || session?.user?.id;
+    NotificationsService.markRead(id, activeUserId);
     setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
   };
 
   const markAllNotificationsRead = () => {
-    NotificationsService.markAllRead('current-user');
+    const activeUserId = user?.id || session?.user?.id;
+    const allIds = notifications.map((n) => n.id);
+    if (activeUserId) {
+      NotificationsService.markAllRead(activeUserId, allIds, activeMeterId);
+    }
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
   };
 
+  const addNotification = (notif: {
+    type: AppNotification['type'];
+    title: string;
+    body: string;
+  }) => {
+    const activeUserId = user?.id || session?.user?.id;
+    const tempId = 'notif_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
+    const newNotif: AppNotification = {
+      id: tempId,
+      userId: activeUserId || undefined,
+      meterId: activeMeterId || null,
+      type: notif.type,
+      title: notif.title,
+      body: notif.body,
+      severity: 'info',
+      read: false,
+      createdAt: new Date().toISOString(),
+    };
+
+    setNotifications((prev) => [newNotif, ...prev]);
+
+    if (activeUserId) {
+      NotificationsService.createNotification(activeUserId, {
+        ...notif,
+        meterId: activeMeterId || null,
+      }).then((created) => {
+        if (created?.id) {
+          setNotifications((prev) =>
+            prev.map((n) => (n.id === tempId ? { ...n, id: created.id! } : n))
+          );
+        }
+      }).catch((err) => console.warn('[AppContext] Error persisting notification:', err));
+    }
+  };
+
   const isLoggedIn = !!session?.user || !!user;
-  const isOnboarded = !!userProfile?.onboarding_completed || !!userProfile?.is_onboarded;
+  const isOnboarded = !!userProfile?.onboarding_completed || !!userProfile?.is_onboarded || !!energyProfile;
   const displayName = userProfile?.full_name || localName;
   const displayEmail = userProfile?.email || user?.email || localEmail;
   const displayPhone = userProfile?.phone || userProfile?.phone_number || localPhone;
@@ -801,11 +1235,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         meters,
         activeMeterId,
         activeMeter,
+        isSwitchingMeter,
         transactions,
         notifications,
         unreadCount,
         login,
         signup,
+        resetPassword,
         logout,
         completeOnboarding,
         updateProfile,
@@ -818,9 +1254,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         fundWallet,
         refreshWallet,
         refreshTransactions,
+        consumptionAnalytics,
+        aiAnalytics,
+        aiEngineStatus,
+        checkAIEngineHealth,
+        applianceEstimates,
+        refreshAnalytics,
+        recordMeterReading,
+        askEnergyAssistant,
+        suggestedQuestions,
+        aiMessages,
+        isAiLoading,
+        recordAiFeedback,
+        clearAiChat,
         buyElectricity,
         markNotificationRead,
         markAllNotificationsRead,
+        addNotification,
+        notificationPreferences,
+        updateNotificationPreferences,
+        refreshNotifications,
+        unreadSupportCount,
+        refreshSupportCount,
       }}
     >
       {children}

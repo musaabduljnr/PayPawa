@@ -38,6 +38,9 @@ yarn-error.*
 
 # temporary scratch
 scripts/brute_force_pw.js
+backups/
+*.backup
+*.dump
 
 # IDE & agent configs
 .agents/
@@ -51,3 +54,6 @@ example
 # generated native folders
 /ios
 /android
+
+# sub-repositories
+web-admin/

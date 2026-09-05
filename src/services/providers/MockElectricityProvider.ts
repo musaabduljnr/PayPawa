@@ -9,7 +9,7 @@ import {
   QueryTransactionResponse,
   VendingStatus,
 } from './ElectricityProvider';
-import { NIGERIAN_DISCOS } from './VTpassProvider';
+import { NIGERIAN_DISCOS } from './discoMapping';
 
 export type MockProviderBehavior =
   | 'SUCCESS'

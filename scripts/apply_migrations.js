@@ -80,6 +80,18 @@ async function run() {
       console.warn('Phase 6 migration file not found.');
     }
 
+    // 3. Read Phase 7 migration SQL
+    const phase7Path = path.resolve(process.cwd(), 'supabase/migrations/20260829000001_phase7_consumption_intelligence.sql');
+    if (fs.existsSync(phase7Path)) {
+      console.log('Reading Phase 7 migration...');
+      const sql7 = fs.readFileSync(phase7Path, 'utf8');
+      console.log('Applying Phase 7 migration...');
+      await client.query(sql7);
+      console.log('✅ Phase 7 migration applied successfully!');
+    } else {
+      console.warn('Phase 7 migration file not found.');
+    }
+
   } catch (err) {
     console.error('Error applying migrations:', err.message);
   } finally {

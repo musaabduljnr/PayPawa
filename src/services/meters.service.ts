@@ -15,7 +15,8 @@ export interface AddMeterDto {
 
 export class MetersService {
   /**
-   * Fetches all registered meters for a given user.
+   * Fetches all registered meters for a given user directly from Supabase.
+   * Returns empty array if no meters exist or query fails (never injects fake fallback meters).
    */
   static async getMeters(userId: string): Promise<MeterEntity[]> {
     const { data, error } = await supabase
@@ -24,23 +25,8 @@ export class MetersService {
       .eq('user_id', userId)
       .order('is_active', { ascending: false });
 
-    if (error || !data || data.length === 0) {
-      return [
-        {
-          id: '1',
-          user_id: userId,
-          meter_number: '0419 8273 645',
-          disco_code: 'yedc',
-          disco_name: 'YEDC (Prepaid)',
-          meter_type: 'prepaid',
-          nickname: 'Home',
-          customer_name: 'Musa Ibrahim',
-          address: 'Plot 12, Wuse Zone 5, Abuja',
-          is_active: true,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        },
-      ];
+    if (error || !data) {
+      return [];
     }
 
     return data as MeterEntity[];
@@ -59,38 +45,56 @@ export class MetersService {
   }
 
   /**
-   * Adds and persists a new meter record for the user.
+   * Adds and persists a new meter record for the user to Supabase.
    */
-  static async addMeter(userId: string, dto: AddMeterDto): Promise<MeterEntity> {
-    const newMeter: MeterEntity = {
-      id: 'm-' + Math.random().toString(36).substring(2, 9),
-      user_id: userId,
-      meter_number: dto.meterNumber,
-      disco_code: dto.discoCode.toLowerCase(),
-      disco_name: dto.discoName,
-      meter_type: 'prepaid',
-      nickname: dto.nickname || 'Meter',
-      customer_name: dto.customerName || 'Musa Ibrahim',
-      address: dto.address || 'Abuja, Nigeria',
-      is_active: true,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
+  static async addMeter(userId: string, dto: AddMeterDto): Promise<{ success: boolean; meter?: MeterEntity; error?: string }> {
+    const isPostpaid = dto.discoName?.toLowerCase().includes('postpaid');
+    const { data, error } = await supabase
+      .from('meters')
+      .insert({
+        user_id: userId,
+        meter_number: dto.meterNumber.replace(/\s/g, ''),
+        disco_code: dto.discoCode.toLowerCase().replace(/[^a-z]/g, ''),
+        disco_name: dto.discoName,
+        meter_type: isPostpaid ? 'postpaid' : 'prepaid',
+        nickname: dto.nickname || 'Meter',
+        customer_name: dto.customerName || null,
+        address: dto.address || null,
+        is_active: true,
+      })
+      .select()
+      .single();
 
-    return newMeter;
+    if (error || !data) {
+      return { success: false, error: error?.message || 'Failed to persist meter' };
+    }
+
+    return { success: true, meter: data as MeterEntity };
   }
 
   /**
-   * Updates an existing meter's nickname.
+   * Updates an existing meter's nickname in Supabase.
    */
   static async renameMeter(userId: string, meterId: string, newName: string) {
-    return { success: true, meterId, newName };
+    const { error } = await supabase
+      .from('meters')
+      .update({ nickname: newName.trim(), updated_at: new Date().toISOString() })
+      .eq('id', meterId)
+      .eq('user_id', userId);
+
+    return { success: !error, meterId, newName, error: error?.message };
   }
 
   /**
-   * Removes a meter record.
+   * Removes a meter record from Supabase.
    */
   static async deleteMeter(userId: string, meterId: string) {
-    return { success: true, meterId };
+    const { error } = await supabase
+      .from('meters')
+      .delete()
+      .eq('id', meterId)
+      .eq('user_id', userId);
+
+    return { success: !error, meterId, error: error?.message };
   }
 }

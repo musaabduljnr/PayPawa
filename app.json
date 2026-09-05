@@ -1,21 +1,30 @@
 {
   "expo": {
-    "name": "smart-electricity-app",
-    "slug": "smart-electricity-app",
+    "name": "PayPawa",
+    "slug": "paypawa",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "smartelectricityapp",
+    "scheme": "paypawa",
     "userInterfaceStyle": "automatic",
+    "statusBar": {
+      "translucent": true
+    },
     "ios": {
-      "icon": "./assets/expo.icon"
+      "bundleIdentifier": "com.paypawa.app",
+      "supportsTablet": false
     },
     "android": {
+      "package": "com.paypawa.app",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
+      },
+      "statusBar": {
+        "translucent": true,
+        "backgroundColor": "transparent"
       },
       "predictiveBackGestureEnabled": false
     },

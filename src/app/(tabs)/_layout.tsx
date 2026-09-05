@@ -1,11 +1,31 @@
-import { Tabs } from 'expo-router';
-import { View, StyleSheet, Platform } from 'react-native';
+import { Tabs, Redirect } from 'expo-router';
+import { View, StyleSheet, Platform, ActivityIndicator } from 'react-native';
 import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 import { Spacing, Rounded, Typography } from '@/constants/theme';
 import { useTheme } from '@/context/ThemeContext';
+import { useApp } from '@/context/AppContext';
 
 export default function TabLayout() {
   const { colors } = useTheme();
+  const { isLoadingAuth, isLoggedIn, isOnboarded } = useApp();
+
+  if (isLoadingAuth) {
+    return (
+      <View style={{ flex: 1, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center' }}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
+
+  // If not logged in, always redirect to Onboarding
+  if (!isLoggedIn) {
+    return <Redirect href="/onboarding" />;
+  }
+
+  // If logged in but hasn't completed energy setup, send to energy setup
+  if (!isOnboarded) {
+    return <Redirect href="/energy-setup" />;
+  }
 
   return (
     <Tabs

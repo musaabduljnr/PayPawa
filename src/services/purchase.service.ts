@@ -1,5 +1,9 @@
 import { supabase } from './supabase';
 import { ElectricityProviderFactory, ElectricityProvider } from './providers';
+import { LoggerService } from './logger.service';
+import { CorrelationService } from './correlation.service';
+import { ConsumptionAnalyticsService } from './consumption-analytics.service';
+import { AIGuardrails } from './ai/ai-guardrails';
 import type { Database, ElectricityTxStatusEnum } from '@/types/database';
 
 export type ElectricityTxRow = Database['public']['Tables']['electricity_transactions']['Row'];
@@ -200,11 +204,31 @@ export class PurchaseService {
     const totalChargeKobo = amountKobo + serviceFeeKobo;
 
     const reference = this.generateInternalReference();
+    const correlationId = dto.clientRequestId || reference;
+    CorrelationService.setActiveId(correlationId);
+
+    LoggerService.info('purchase-engine', 'purchase.initiated', {
+      correlationId,
+      userId: dto.userId,
+      meterId: dto.meterId,
+      internalTransactionId: reference,
+      metadata: { amountNaira: dto.amountNaira, meter: sanitizedMeter, disco: dto.discoCode },
+    });
+
     const idempotencyKey = `ELEC-${dto.userId}-${dto.clientRequestId || reference}`;
 
-    // 3. Client-side Rapid Double-Tap Lock Check
-    const lockKey = `${dto.userId}:${sanitizedMeter}:${amountKobo}`;
-    if (this.inFlightPurchases.has(lockKey)) {
+    // 3. Client-side Rapid Double-Tap Lock Check (Account & Meter Scope)
+    const userLockKey = `USER_PURCHASE_${dto.userId}`;
+    const meterLockKey = `${dto.userId}:${sanitizedMeter}:${amountKobo}`;
+    if (this.inFlightPurchases.has(userLockKey) || this.inFlightPurchases.has(meterLockKey)) {
+      LoggerService.warn('purchase-engine', 'purchase.concurrent_blocked', {
+        correlationId,
+        userId: dto.userId,
+        meterId: dto.meterId,
+        internalTransactionId: reference,
+        errorCode: 'VALIDATION_ERROR',
+        message: 'Concurrent purchase request blocked by in-flight lock',
+      });
       return {
         success: false,
         status: 'processing',
@@ -216,11 +240,12 @@ export class PurchaseService {
         discoCode: dto.discoCode,
         discoName: dto.discoName || dto.discoCode.toUpperCase(),
         errorCode: 'CONCURRENT_REQUEST',
-        errorMessage: 'A purchase is already being processed for this meter. Please wait.',
+        errorMessage: 'A purchase is already being processed for this account. Please wait.',
       };
     }
 
-    this.inFlightPurchases.add(lockKey);
+    this.inFlightPurchases.add(userLockKey);
+    this.inFlightPurchases.add(meterLockKey);
 
     try {
       let transactionId: string;
@@ -237,7 +262,7 @@ export class PurchaseService {
         p_service_fee_kobo: serviceFeeKobo,
         p_reference: reference,
         p_idempotency_key: idempotencyKey,
-        p_provider_name: customProvider ? customProvider.providerName : 'vtpass'
+        p_provider_name: customProvider ? customProvider.providerName : 'squad'
       });
 
       if (initRpcError && initRpcError.code === 'PGRST202') {
@@ -343,7 +368,7 @@ export class PurchaseService {
             amount_kobo: amountKobo,
             status: 'processing',
             reference,
-            provider_name: customProvider ? customProvider.providerName : 'vtpass',
+            provider_name: customProvider ? customProvider.providerName : 'squad',
             idempotency_key: idempotencyKey,
           })
           .select()
@@ -504,8 +529,8 @@ export class PurchaseService {
 
       // 9. Settle Transaction Result
       if (vendResult.success && vendResult.status === 'successful' && vendResult.token) {
-        const unitsKwh = vendResult.unitsKwh || parseFloat((dto.amountNaira / 206.8).toFixed(1));
-        const tariffPerKwhKobo = vendResult.tariffPerKwhKobo || 20680;
+        const unitsKwh = vendResult.unitsKwh !== undefined && vendResult.unitsKwh !== null ? vendResult.unitsKwh : null;
+        const tariffPerKwhKobo = vendResult.tariffPerKwhKobo || null;
 
         const { data: finalizeData, error: finalizeError } = await client.rpc('finalize_electricity_purchase_success', {
           p_transaction_id: transactionId,
@@ -513,6 +538,12 @@ export class PurchaseService {
           p_token: vendResult.token,
           p_units_kwh: unitsKwh,
           p_tariff_per_kwh_kobo: tariffPerKwhKobo,
+          p_metadata: {
+            vat_naira: vendResult.vatNaira,
+            receipt_number: vendResult.receiptNumber,
+            tariff_class: vendResult.tariffClass,
+            outstanding_debt_naira: vendResult.outstandingDebtNaira,
+          },
         });
 
         if (finalizeError && finalizeError.code === 'PGRST202') {
@@ -529,8 +560,8 @@ export class PurchaseService {
             })
             .eq('id', transactionId);
 
-          // Record consumption
-          if (dto.meterId) {
+          // Record consumption record if units available
+          if (dto.meterId && unitsKwh !== null) {
             try {
               await client.from('consumption_records').insert({
                 user_id: dto.userId,
@@ -544,20 +575,58 @@ export class PurchaseService {
             }
           }
 
-          // Send notification
-          await client.from('notifications').insert({
+          // Send notification with Phase 11 meter isolation & deduplication
+          try {
+            await (client.from('notifications') as any).insert({
+              user_id: dto.userId,
+              meter_id: dto.meterId || null,
+              type: 'purchase',
+              title: 'Electricity Token Vended!',
+              body: `Token: ${vendResult.token}${unitsKwh ? ` (${unitsKwh} kWh)` : ''}`,
+              severity: 'success',
+              deduplication_key: `purchase_success_${transactionId}`,
+              related_transaction_id: transactionId,
+              data: {
+                category: 'purchase_success',
+                transaction_id: transactionId,
+                token: vendResult.token,
+                units_kwh: unitsKwh,
+                reference,
+                action_label: 'View Token',
+                action_url: `/payment-success?reference=${reference}&token=${vendResult.token}`,
+              },
+            });
+          } catch (e) {
+            console.warn('[PurchaseService] Notification insert error:', e);
+          }
+        }
+
+        // Emit normalized Consumption Event (never block payment if analytics insert fails)
+        try {
+          await client.from('consumption_events').insert({
             user_id: dto.userId,
-            type: 'purchase',
-            title: 'Electricity Token Vended!',
-            body: `Token: ${vendResult.token} (${unitsKwh} kWh)`,
-            data: {
-              transaction_id: transactionId,
-              token: vendResult.token,
-              units_kwh: unitsKwh,
+            meter_id: dto.meterId || null,
+            transaction_id: transactionId,
+            event_type: 'PURCHASE',
+            units: unitsKwh,
+            units_source: unitsKwh !== null ? 'PROVIDER' : 'UNAVAILABLE',
+            amount_kobo: amountKobo,
+            currency: 'NGN',
+            confidence: 1.0,
+            occurred_at: new Date().toISOString(),
+            metadata: {
               reference,
+              disco_code: dto.discoCode,
+              token: vendResult.token,
             },
           });
+        } catch (ceErr) {
+          console.warn('[PurchaseService] Non-fatal consumption event logging error:', ceErr);
         }
+
+        // Invalidate scoped analytics cache and AI cache immediately
+        ConsumptionAnalyticsService.invalidateCache(dto.userId, dto.meterId);
+        AIGuardrails.invalidateUserCache(dto.userId);
 
         return {
           success: true,
@@ -565,8 +634,8 @@ export class PurchaseService {
           transactionId,
           reference,
           token: vendResult.token,
-          unitsKwh,
-          tariffPerKwhKobo: tariffPerKwhKobo,
+          unitsKwh: unitsKwh ?? undefined,
+          tariffPerKwhKobo: tariffPerKwhKobo ?? undefined,
           amountNaira: dto.amountNaira,
           serviceFeeNaira: 0,
           totalChargeNaira: dto.amountNaira,
@@ -635,7 +704,8 @@ export class PurchaseService {
         errorMessage: 'Transaction is currently processing with the utility gateway. We are confirming the status.',
       };
     } finally {
-      this.inFlightPurchases.delete(lockKey);
+      this.inFlightPurchases.delete(meterLockKey);
+      this.inFlightPurchases.delete(userLockKey);
     }
   }
 

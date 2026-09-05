@@ -12,6 +12,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
+import Svg, { Circle, Path, Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import { Spacing, Rounded, Typography } from '@/constants/theme';
 import { useTheme } from '@/context/ThemeContext';
 import { useApp } from '@/context/AppContext';
@@ -24,46 +25,125 @@ interface OnboardingSlide {
   title: string;
   highlight: string;
   description: string;
-  iconName: string;
-  iconType: 'community' | 'material';
   tags: string[];
+  illustrationType: 'vending' | 'analytics' | 'security';
 }
 
 const SLIDES: OnboardingSlide[] = [
   {
     id: '1',
-    badge: '⚡ FAST & RELIABLE VENDING',
+    badge: 'FAST & RELIABLE VENDING',
     title: 'Instant Electricity',
     highlight: 'Recharge & Tokens',
-    description:
-      'Buy prepaid STS meter tokens and pay postpaid bills across all 11 Nigerian DISCOs (IKEDC, EKEDC, AEDC, IBEDC, YEDC, and more) with 0% gateway fees and instant delivery.',
-    iconName: 'lightning-bolt-circle',
-    iconType: 'community',
+    description: 'Buy prepaid STS meter tokens & pay bills across all 11 DISCOs with 0% gateway fees.',
     tags: ['IKEDC', 'EKEDC', 'AEDC', 'IBEDC', 'YEDC', 'KAEDCO'],
+    illustrationType: 'vending',
   },
   {
     id: '2',
-    badge: '📊 ENERGY INTELLIGENCE',
+    badge: 'ENERGY INTELLIGENCE',
     title: 'Smart Appliance',
     highlight: 'Power Analytics',
-    description:
-      'Profile your home or business appliances. Understand which heavy loads (ACs, deep freezers, pumping machines) consume the most power and calculate your baseline daily kWh.',
-    iconName: 'chart-timeline-variant-shimmer',
-    iconType: 'community',
-    tags: ['Daily kWh Baseline', 'Heavy Load Detection', 'Cost Optimization'],
+    description: 'Profile your appliances, track heavy power loads, and predict your daily kWh usage.',
+    tags: ['Daily Baseline', 'Load Detection', 'Cost Optimization'],
+    illustrationType: 'analytics',
   },
   {
     id: '3',
-    badge: '🔒 SAFE & SECURE WALLET',
+    badge: 'SECURE WALLET',
     title: 'Zero Token Loss',
-    highlight: 'Lifetime History',
-    description:
-      'Never lose a 20-digit STS token again. Every transaction is stored securely with instant receipt generation, SMS backup, and seamless wallet-to-meter payments.',
-    iconName: 'shield-check-outline',
-    iconType: 'community',
-    tags: ['Instant STS Token', 'PDF Receipts', 'Automated History'],
+    highlight: 'Lifetime Storage',
+    description: 'Never lose a 20-digit STS token again. Automatic cloud backup & instant receipts.',
+    tags: ['20-Digit STS', 'PDF Receipts', 'Instant Backup'],
+    illustrationType: 'security',
   },
 ];
+
+function SlideIllustration({ type, colors, isDark }: { type: 'vending' | 'analytics' | 'security'; colors: any; isDark: boolean }) {
+  const primaryColor = colors.primary;
+  const greenColor = colors.secondary;
+  const darkGreen = colors.secondaryDark;
+
+  if (type === 'vending') {
+    return (
+      <View style={styles.illustrationCard}>
+        {/* Ambient Pulsing Glow Rings */}
+        <View style={[styles.outerGlowRing, { backgroundColor: isDark ? 'rgba(132, 204, 22, 0.08)' : 'rgba(132, 204, 22, 0.14)' }]}>
+          <View style={[styles.innerGlowRing, { backgroundColor: isDark ? 'rgba(132, 204, 22, 0.12)' : 'rgba(132, 204, 22, 0.22)' }]}>
+            <View style={[styles.coreCircle, { backgroundColor: isDark ? colors.surfaceContainerLow : colors.surface, borderColor: isDark ? colors.outlineVariant : '#E5E7EB' }]}>
+              <MaterialCommunityIcons name="lightning-bolt" size={54} color={greenColor} />
+            </View>
+          </View>
+        </View>
+
+        {/* Floating Accent Badge Top Right */}
+        <View style={[styles.floatingBadgeTop, { backgroundColor: isDark ? colors.surfaceContainerHigh : colors.surface, borderColor: colors.outlineVariant }]}>
+          <MaterialIcons name="bolt" size={14} color={darkGreen} />
+          <Text style={[styles.floatingBadgeText, Typography.labelCaps, { color: colors.primary }]}>0% Gateway Fee</Text>
+        </View>
+
+        {/* Floating Accent Badge Bottom Left */}
+        <View style={[styles.floatingBadgeBottom, { backgroundColor: isDark ? colors.surfaceContainerHigh : colors.surface, borderColor: colors.outlineVariant }]}>
+          <MaterialCommunityIcons name="shield-check" size={14} color={darkGreen} />
+          <Text style={[styles.floatingBadgeText, Typography.labelCaps, { color: colors.primary }]}>11 DISCOs Connected</Text>
+        </View>
+      </View>
+    );
+  }
+
+  if (type === 'analytics') {
+    return (
+      <View style={styles.illustrationCard}>
+        {/* Ambient Glow Rings */}
+        <View style={[styles.outerGlowRing, { backgroundColor: isDark ? 'rgba(132, 204, 22, 0.08)' : 'rgba(132, 204, 22, 0.14)' }]}>
+          <View style={[styles.innerGlowRing, { backgroundColor: isDark ? 'rgba(132, 204, 22, 0.12)' : 'rgba(132, 204, 22, 0.22)' }]}>
+            <View style={[styles.coreCircle, { backgroundColor: isDark ? colors.surfaceContainerLow : colors.surface, borderColor: isDark ? colors.outlineVariant : '#E5E7EB' }]}>
+              <MaterialCommunityIcons name="chart-timeline-variant-shimmer" size={50} color={greenColor} />
+            </View>
+          </View>
+        </View>
+
+        {/* Floating Accent Badge Top Right */}
+        <View style={[styles.floatingBadgeTop, { backgroundColor: isDark ? colors.surfaceContainerHigh : colors.surface, borderColor: colors.outlineVariant }]}>
+          <MaterialIcons name="trending-down" size={14} color={darkGreen} />
+          <Text style={[styles.floatingBadgeText, Typography.labelCaps, { color: colors.primary }]}>-15% Power Waste</Text>
+        </View>
+
+        {/* Floating Accent Badge Bottom Left */}
+        <View style={[styles.floatingBadgeBottom, { backgroundColor: isDark ? colors.surfaceContainerHigh : colors.surface, borderColor: colors.outlineVariant }]}>
+          <MaterialIcons name="speed" size={14} color={darkGreen} />
+          <Text style={[styles.floatingBadgeText, Typography.labelCaps, { color: colors.primary }]}>Daily kWh Predictor</Text>
+        </View>
+      </View>
+    );
+  }
+
+  // Security slide
+  return (
+    <View style={styles.illustrationCard}>
+      {/* Ambient Glow Rings */}
+      <View style={[styles.outerGlowRing, { backgroundColor: isDark ? 'rgba(132, 204, 22, 0.08)' : 'rgba(132, 204, 22, 0.14)' }]}>
+        <View style={[styles.innerGlowRing, { backgroundColor: isDark ? 'rgba(132, 204, 22, 0.12)' : 'rgba(132, 204, 22, 0.22)' }]}>
+          <View style={[styles.coreCircle, { backgroundColor: isDark ? colors.surfaceContainerLow : colors.surface, borderColor: isDark ? colors.outlineVariant : '#E5E7EB' }]}>
+            <MaterialCommunityIcons name="shield-lock-outline" size={52} color={greenColor} />
+          </View>
+        </View>
+      </View>
+
+      {/* Floating Accent Badge Top Right */}
+      <View style={[styles.floatingBadgeTop, { backgroundColor: isDark ? colors.surfaceContainerHigh : colors.surface, borderColor: colors.outlineVariant }]}>
+        <MaterialIcons name="lock" size={14} color={darkGreen} />
+        <Text style={[styles.floatingBadgeText, Typography.labelCaps, { color: colors.primary }]}>20-Digit STS Safe</Text>
+      </View>
+
+      {/* Floating Accent Badge Bottom Left */}
+      <View style={[styles.floatingBadgeBottom, { backgroundColor: isDark ? colors.surfaceContainerHigh : colors.surface, borderColor: colors.outlineVariant }]}>
+        <MaterialIcons name="receipt-long" size={14} color={darkGreen} />
+        <Text style={[styles.floatingBadgeText, Typography.labelCaps, { color: colors.primary }]}>Instant PDF Receipts</Text>
+      </View>
+    </View>
+  );
+}
 
 export default function OnboardingScreen() {
   const { colors, isDark } = useTheme();
@@ -79,14 +159,6 @@ export default function OnboardingScreen() {
     }
   };
 
-  const handleNext = () => {
-    if (currentIndex < SLIDES.length - 1) {
-      flatListRef.current?.scrollToIndex({ index: currentIndex + 1, animated: true });
-    } else {
-      router.push({ pathname: '/signup', params: { mode: 'signup' } });
-    }
-  };
-
   const navigateToSignUp = () => {
     router.push({ pathname: '/signup', params: { mode: 'signup' } });
   };
@@ -95,7 +167,22 @@ export default function OnboardingScreen() {
     router.push({ pathname: '/signup', params: { mode: 'signin' } });
   };
 
-  // If already logged in, redirect to dashboard inside useEffect
+  // Auto-slide carousel interval (3.5 seconds)
+  React.useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentIndex((prevIndex) => {
+        const nextIndex = (prevIndex + 1) % SLIDES.length;
+        flatListRef.current?.scrollToIndex({
+          index: nextIndex,
+          animated: true,
+        });
+        return nextIndex;
+      });
+    }, 3500);
+
+    return () => clearInterval(timer);
+  }, []);
+
   React.useEffect(() => {
     if (isLoggedIn) {
       router.replace('/(tabs)/home');
@@ -109,24 +196,14 @@ export default function OnboardingScreen() {
   const renderSlide = ({ item }: { item: OnboardingSlide }) => {
     return (
       <View style={[styles.slideContainer, { width: SCREEN_WIDTH }]}>
-        {/* Graphic & Icon Centerpiece */}
-        <View style={styles.graphicWrap}>
-          <View style={[styles.glowRing, { backgroundColor: isDark ? 'rgba(132, 204, 22, 0.08)' : 'rgba(132, 204, 22, 0.15)' }]}>
-            <View style={[styles.innerCircle, { backgroundColor: isDark ? colors.surfaceContainerLow : colors.surface, borderColor: isDark ? colors.outlineVariant : '#E5E7EB' }]}>
-              {item.iconType === 'community' ? (
-                <MaterialCommunityIcons name={item.iconName as any} size={64} color={colors.secondary} />
-              ) : (
-                <MaterialIcons name={item.iconName as any} size={64} color={colors.secondary} />
-              )}
-            </View>
-          </View>
-        </View>
+        {/* Graphic & Illustration Centerpiece */}
+        <SlideIllustration type={item.illustrationType} colors={colors} isDark={isDark} />
 
         {/* Content Section */}
         <View style={styles.textContainer}>
           {/* Badge */}
           <View style={[styles.badge, { backgroundColor: isDark ? 'rgba(132, 204, 22, 0.15)' : 'rgba(132, 204, 22, 0.2)' }]}>
-            <Text style={[styles.badgeText, Typography.labelCaps, { color: colors.secondary }]}>
+            <Text style={[styles.badgeText, Typography.labelCaps, { color: colors.secondaryDark }]}>
               {item.badge}
             </Text>
           </View>
@@ -134,10 +211,10 @@ export default function OnboardingScreen() {
           {/* Heading */}
           <Text style={[styles.title, Typography.headlineLg, { color: colors.text }]}>
             {item.title}{'\n'}
-            <Text style={{ color: colors.secondary }}>{item.highlight}</Text>
+            <Text style={{ color: colors.secondaryDark }}>{item.highlight}</Text>
           </Text>
 
-          {/* Description */}
+          {/* Compact Description */}
           <Text style={[styles.description, Typography.bodyMd, { color: colors.textSecondary }]}>
             {item.description}
           </Text>
@@ -168,22 +245,16 @@ export default function OnboardingScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-      {/* Top Header with Skip Option */}
+      {/* Top Header with PayPawa Branding */}
       <View style={styles.header}>
         <View style={styles.logoRow}>
           <View style={[styles.logoBadge, { backgroundColor: colors.primary }]}>
             <MaterialCommunityIcons name="bolt" size={20} color={colors.secondary} />
           </View>
-          <Text style={[styles.logoText, Typography.headlineMd, { color: colors.primary, fontSize: 18 }]}>
-            Smart<Text style={{ color: colors.secondary }}>Electricity</Text>
+          <Text style={[styles.logoText, Typography.headlineMd, { color: colors.primary, fontSize: 20 }]}>
+            Pay<Text style={{ color: colors.secondary }}>Pawa</Text>
           </Text>
         </View>
-
-        <TouchableOpacity onPress={navigateToSignIn} style={styles.skipBtn} activeOpacity={0.7}>
-          <Text style={[styles.skipText, Typography.metricUnit, { color: colors.secondary }]}>
-            Log In
-          </Text>
-        </TouchableOpacity>
       </View>
 
       {/* Main Carousel */}
@@ -199,6 +270,14 @@ export default function OnboardingScreen() {
         scrollEventThrottle={16}
         bounces={false}
         style={styles.carousel}
+        getItemLayout={(_, index) => ({
+          length: SCREEN_WIDTH,
+          offset: SCREEN_WIDTH * index,
+          index,
+        })}
+        onScrollToIndexFailed={(info) => {
+          flatListRef.current?.scrollToOffset({ offset: info.averageItemLength * info.index, animated: true });
+        }}
       />
 
       {/* Bottom Controls */}
@@ -213,7 +292,7 @@ export default function OnboardingScreen() {
                 style={[
                   styles.dot,
                   isActive
-                    ? [styles.activeDot, { backgroundColor: colors.secondary }]
+                    ? [styles.activeDot, { backgroundColor: colors.secondaryDark }]
                     : [styles.inactiveDot, { backgroundColor: colors.outlineVariant }],
                 ]}
               />
@@ -246,7 +325,7 @@ export default function OnboardingScreen() {
             activeOpacity={0.8}
           >
             <Text style={[styles.secondaryBtnText, Typography.metricUnit, { color: colors.text }]}>
-              Already have an account? <Text style={{ color: colors.secondary, fontWeight: '700' }}>Log In</Text>
+              Already have an account? <Text style={{ color: colors.secondaryDark, fontWeight: '700' }}>Log In</Text>
             </Text>
           </TouchableOpacity>
         </View>
@@ -282,13 +361,6 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: -0.5,
   },
-  skipBtn: {
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: Spacing.xs,
-  },
-  skipText: {
-    fontWeight: '700',
-  },
   carousel: {
     flex: 1,
   },
@@ -298,30 +370,78 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  graphicWrap: {
+  illustrationCard: {
+    width: 260,
+    height: 200,
     alignItems: 'center',
     justifyContent: 'center',
-    marginVertical: Spacing.lg,
+    position: 'relative',
+    marginVertical: Spacing.md,
   },
-  glowRing: {
-    width: 160,
-    height: 160,
-    borderRadius: 80,
+  outerGlowRing: {
+    width: 170,
+    height: 170,
+    borderRadius: 85,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  innerCircle: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
+  innerGlowRing: {
+    width: 130,
+    height: 130,
+    borderRadius: 65,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  coreCircle: {
+    width: 90,
+    height: 90,
+    borderRadius: 45,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  floatingBadgeTop: {
+    position: 'absolute',
+    top: 10,
+    right: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: Rounded.full,
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  floatingBadgeBottom: {
+    position: 'absolute',
+    bottom: 10,
+    left: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: Rounded.full,
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  floatingBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
   },
   textContainer: {
     alignItems: 'center',
@@ -329,30 +449,32 @@ const styles = StyleSheet.create({
   },
   badge: {
     paddingHorizontal: 12,
-    paddingVertical: 5,
+    paddingVertical: 4,
     borderRadius: Rounded.full,
-    marginBottom: Spacing.md,
+    marginBottom: Spacing.sm,
   },
   badgeText: {
-    fontWeight: '800',
+    fontWeight: '700',
     letterSpacing: 0.8,
   },
   title: {
     textAlign: 'center',
-    marginBottom: Spacing.sm,
+    marginBottom: Spacing.xs,
+    fontSize: 24,
+    lineHeight: 30,
   },
   description: {
     textAlign: 'center',
-    lineHeight: 22,
-    marginBottom: Spacing.md,
-    maxWidth: 320,
+    lineHeight: 20,
+    marginBottom: Spacing.sm,
+    maxWidth: 310,
   },
   tagRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'center',
     gap: 6,
-    marginTop: Spacing.xs,
+    marginTop: 2,
   },
   tagPill: {
     paddingHorizontal: 10,
@@ -367,24 +489,24 @@ const styles = StyleSheet.create({
   footer: {
     paddingHorizontal: Spacing.containerMargin,
     paddingBottom: Spacing.lg,
-    paddingTop: Spacing.sm,
+    paddingTop: Spacing.xs,
   },
   paginationRow: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
     gap: 8,
-    marginBottom: Spacing.lg,
+    marginBottom: Spacing.md,
   },
   dot: {
-    height: 8,
-    borderRadius: 4,
+    height: 6,
+    borderRadius: 3,
   },
   activeDot: {
     width: 24,
   },
   inactiveDot: {
-    width: 8,
+    width: 6,
   },
   actionRow: {
     gap: Spacing.sm,
@@ -397,10 +519,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: Spacing.xs,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 2,
   },
   primaryBtnText: {
     fontWeight: '700',

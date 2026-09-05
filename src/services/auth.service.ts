@@ -165,6 +165,22 @@ export class AuthService {
   }
 
   /**
+   * Sends a password reset email to the specified email address.
+   */
+  static async resetPasswordForEmail(
+    email: string
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email);
+      if (error) throw error;
+      return { success: true };
+    } catch (err: any) {
+      console.warn('[AuthService.resetPasswordForEmail] Error:', err);
+      return { success: false, error: this.mapAuthError(err) };
+    }
+  }
+
+  /**
    * Retrieves the current Supabase session.
    */
   static async getSession(): Promise<Session | null> {
@@ -242,4 +258,44 @@ export class AuthService {
   ) {
     return supabase.auth.onAuthStateChange(callback);
   }
+
+  /**
+   * Submits an authoritative account deletion and data erasure request.
+   * Required for Apple App Store (Guideline 5.1.1(v)) and Google Play Store compliance.
+   */
+  static async requestAccountDeletion(
+    userId: string,
+    reason: string = 'User requested account closure'
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      // 1. Record audit log entry for irreversible compliance tracking
+      await supabase.from('audit_logs').insert({
+        user_id: userId,
+        action: 'ACCOUNT_DELETION_REQUESTED',
+        entity_name: 'profiles',
+        entity_id: userId,
+        new_values: { reason, requested_at: new Date().toISOString() },
+      });
+
+      // 2. Lock wallet and mark profile for soft deletion / anonymization
+      await supabase
+        .from('profiles')
+        .update({
+          full_name: 'Deleted Account',
+          phone: null,
+          avatar_url: null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', userId);
+
+      // 3. Sign the user out from all sessions
+      await supabase.auth.signOut();
+
+      return { success: true };
+    } catch (err: any) {
+      console.warn('[AuthService.requestAccountDeletion] Error:', err);
+      return { success: false, error: this.mapAuthError(err) };
+    }
+  }
 }
+

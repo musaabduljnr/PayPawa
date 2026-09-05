@@ -7,14 +7,16 @@ import {
   ScrollView,
   Animated,
   Clipboard,
-  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { Colors, Spacing, Rounded, Typography } from '@/constants/theme';
+import { Spacing, Rounded, Typography } from '@/constants/theme';
+import { useTheme } from '@/context/ThemeContext';
+import { CustomAlert } from '@/context/AlertContext';
 
 export default function PaymentSuccessScreen() {
+  const { colors, isDark } = useTheme();
   const { amount, token, units, reference, meterNumber, disco } =
     useLocalSearchParams<{
       amount: string;
@@ -46,7 +48,12 @@ export default function PaymentSuccessScreen() {
 
   const handleCopy = () => {
     Clipboard.setString(token || '');
-    Alert.alert('Copied!', 'Token copied to clipboard.');
+    CustomAlert.alert(
+      'Token Copied!',
+      'Electricity token copied to clipboard.',
+      [{ text: 'Great', style: 'default' }],
+      { type: 'success' }
+    );
   };
 
   const formattedToken = (token || '0000 0000 0000 0000 00')
@@ -55,54 +62,105 @@ export default function PaymentSuccessScreen() {
     ?.join(' ') || token;
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Celebration Header */}
-        <View style={styles.celebrationHeader}>
+        <View style={[styles.celebrationHeader, { backgroundColor: isDark ? colors.surface : colors.primary }]}>
           <View style={styles.decorRing1} />
           <View style={styles.decorRing2} />
           <View style={styles.decorRing3} />
 
           <Animated.View style={[styles.checkIconWrap, { transform: [{ scale: scaleAnim }] }]}>
             <View style={styles.checkIconOuter}>
-              <View style={styles.checkIconInner}>
-                <MaterialIcons name="check" size={44} color={Colors.white} />
+              <View
+                style={[
+                  styles.checkIconInner,
+                  { backgroundColor: isDark ? colors.secondary : colors.secondaryDark },
+                ]}
+              >
+                <MaterialIcons name="check" size={44} color={isDark ? colors.background : colors.white} />
               </View>
             </View>
           </Animated.View>
 
           <Animated.View style={{ opacity: fadeAnim, alignItems: 'center', gap: Spacing.xs }}>
-            <Text style={[styles.successTitle, Typography.headlineLg]}>Payment Successful!</Text>
-            <Text style={[styles.successSubtitle, Typography.bodyMd]}>
+            <Text style={[styles.successTitle, Typography.headlineLg, { color: colors.white }]}>Payment Successful!</Text>
+            <Text style={[styles.successSubtitle, Typography.bodyMd, { color: 'rgba(255,255,255,0.7)' }]}>
               Your token has been generated
             </Text>
           </Animated.View>
         </View>
 
         {/* Token Card */}
-        <Animated.View style={[styles.tokenCard, { opacity: fadeAnim }]}>
-          <View style={styles.tokenCardDecor} />
+        <Animated.View
+          style={[
+            styles.tokenCard,
+            { backgroundColor: colors.surface, borderColor: colors.outlineVariant, opacity: fadeAnim },
+          ]}
+        >
+          <View
+            style={[
+              styles.tokenCardDecor,
+              { backgroundColor: isDark ? colors.secondary : colors.secondaryDark },
+            ]}
+          />
           <View style={styles.tokenCardContent}>
             <View style={styles.tokenTop}>
               <View style={styles.tokenLabelRow}>
-                <MaterialCommunityIcons name="lightning-bolt" size={18} color={Colors.secondaryDark} />
-                <Text style={[styles.tokenLabel, Typography.labelCaps]}>Your Token Number</Text>
+                <MaterialCommunityIcons
+                  name="lightning-bolt"
+                  size={18}
+                  color={isDark ? colors.secondary : colors.secondaryDark}
+                />
+                <Text style={[styles.tokenLabel, Typography.labelCaps, { color: colors.textSecondary }]}>Your Token Number</Text>
               </View>
-              <TouchableOpacity style={styles.copyBtn} onPress={handleCopy}>
-                <MaterialIcons name="content-copy" size={18} color={Colors.primary} />
-                <Text style={[styles.copyBtnText, Typography.labelCaps]}>Copy</Text>
+              <TouchableOpacity
+                style={[styles.copyBtn, { borderColor: isDark ? colors.secondary : colors.primary }]}
+                onPress={handleCopy}
+              >
+                <MaterialIcons name="content-copy" size={18} color={isDark ? colors.secondary : colors.primary} />
+                <Text
+                  style={[
+                    styles.copyBtnText,
+                    Typography.labelCaps,
+                    { color: isDark ? colors.secondary : colors.primary },
+                  ]}
+                >
+                  Copy
+                </Text>
               </TouchableOpacity>
             </View>
-            <Text style={[styles.tokenValue, Typography.displayMetrics]}>{formattedToken}</Text>
-            <Text style={[styles.tokenHint, Typography.bodyMd]}>
+            <Text
+              style={[
+                styles.tokenValue,
+                Typography.displayMetrics,
+                { color: isDark ? colors.secondary : colors.primary },
+              ]}
+            >
+              {formattedToken}
+            </Text>
+            <Text style={[styles.tokenHint, Typography.bodyMd, { color: colors.textSecondary }]}>
               Enter this token on your meter keypad to activate {units} kWh
             </Text>
           </View>
         </Animated.View>
 
         {/* Receipt Details */}
-        <Animated.View style={[styles.receiptCard, { opacity: fadeAnim }]}>
-          <Text style={[styles.receiptTitle, Typography.headlineMd]}>Payment Receipt</Text>
+        <Animated.View
+          style={[
+            styles.receiptCard,
+            { backgroundColor: colors.surface, borderColor: colors.outlineVariant, opacity: fadeAnim },
+          ]}
+        >
+          <Text
+            style={[
+              styles.receiptTitle,
+              Typography.headlineMd,
+              { color: isDark ? colors.secondary : colors.primary },
+            ]}
+          >
+            Payment Receipt
+          </Text>
           <View style={styles.receiptRows}>
             {[
               { label: 'Reference', value: reference || 'TX-' + Date.now() },
@@ -119,13 +177,17 @@ export default function PaymentSuccessScreen() {
                 }),
               },
             ].map((row, i) => (
-              <View key={i} style={styles.receiptRow}>
-                <Text style={[styles.receiptRowLabel, Typography.bodyMd]}>{row.label}</Text>
+              <View
+                key={i}
+                style={[styles.receiptRow, { borderBottomColor: colors.surfaceContainerHighest }]}
+              >
+                <Text style={[styles.receiptRowLabel, Typography.bodyMd, { color: colors.textSecondary }]}>{row.label}</Text>
                 <Text
                   style={[
                     styles.receiptRowValue,
                     Typography.metricUnit,
-                    row.label === 'Status' ? styles.statusGreen : null,
+                    { color: colors.text },
+                    row.label === 'Status' ? { color: isDark ? colors.secondary : colors.secondaryDark } : null,
                   ]}
                 >
                   {row.value}
@@ -137,31 +199,62 @@ export default function PaymentSuccessScreen() {
 
         {/* Actions */}
         <Animated.View style={[styles.actionsRow, { opacity: fadeAnim }]}>
-          <TouchableOpacity style={styles.shareBtn}>
-            <MaterialIcons name="share" size={22} color={Colors.primary} />
-            <Text style={[styles.shareBtnText, Typography.metricUnit]}>Share Token</Text>
+          <TouchableOpacity style={[styles.shareBtn, { borderColor: isDark ? colors.secondary : colors.primary }]}>
+            <MaterialIcons name="share" size={22} color={isDark ? colors.secondary : colors.primary} />
+            <Text
+              style={[
+                styles.shareBtnText,
+                Typography.metricUnit,
+                { color: isDark ? colors.secondary : colors.primary },
+              ]}
+            >
+              Share Token
+            </Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.downloadBtn}>
-            <MaterialIcons name="download" size={22} color={Colors.primary} />
-            <Text style={[styles.downloadBtnText, Typography.metricUnit]}>Save Receipt</Text>
+          <TouchableOpacity
+            style={[styles.downloadBtn, { borderColor: isDark ? colors.secondary : colors.primary }]}
+          >
+            <MaterialIcons name="download" size={22} color={isDark ? colors.secondary : colors.primary} />
+            <Text
+              style={[
+                styles.downloadBtnText,
+                Typography.metricUnit,
+                { color: isDark ? colors.secondary : colors.primary },
+              ]}
+            >
+              Save Receipt
+            </Text>
           </TouchableOpacity>
         </Animated.View>
       </ScrollView>
 
       {/* Sticky Footer */}
-      <View style={styles.stickyFooter}>
+      <View
+        style={[
+          styles.stickyFooter,
+          { backgroundColor: colors.background, borderTopColor: colors.outlineVariant },
+        ]}
+      >
         <TouchableOpacity
-          style={styles.homeBtn}
+          style={[styles.homeBtn, { backgroundColor: isDark ? colors.secondary : colors.primary }]}
           onPress={() => router.replace('/(tabs)/home')}
         >
-          <MaterialIcons name="home" size={20} color={Colors.white} />
-          <Text style={[styles.homeBtnText, Typography.headlineMd]}>Back to Dashboard</Text>
+          <MaterialIcons name="home" size={20} color={isDark ? colors.background : colors.white} />
+          <Text
+            style={[
+              styles.homeBtnText,
+              Typography.headlineMd,
+              { color: isDark ? colors.background : colors.white },
+            ]}
+          >
+            Back to Dashboard
+          </Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.buyAgainBtn}
           onPress={() => router.replace('/buy-electricity')}
         >
-          <Text style={[styles.buyAgainBtnText, Typography.metricUnit]}>Buy Again</Text>
+          <Text style={[styles.buyAgainBtnText, Typography.metricUnit, { color: colors.textSecondary }]}>Buy Again</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -169,10 +262,9 @@ export default function PaymentSuccessScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
+  container: { flex: 1 },
   scrollContent: { paddingBottom: 140 },
   celebrationHeader: {
-    backgroundColor: Colors.primary,
     alignItems: 'center',
     paddingTop: Spacing.xl * 2,
     paddingBottom: Spacing.xl * 2,
@@ -222,21 +314,17 @@ const styles = StyleSheet.create({
     width: 76,
     height: 76,
     borderRadius: Rounded.full,
-    backgroundColor: Colors.secondaryDark,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  successTitle: { color: Colors.white },
-  successSubtitle: { color: 'rgba(255,255,255,0.7)' },
+  successTitle: {},
+  successSubtitle: {},
   tokenCard: {
     marginHorizontal: Spacing.containerMargin,
     marginTop: -Spacing.lg,
-    backgroundColor: Colors.surface,
     borderRadius: Rounded.xl,
     borderWidth: 1,
-    borderColor: Colors.outlineVariant,
     overflow: 'hidden',
-    shadowColor: Colors.primary,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.1,
     shadowRadius: 16,
@@ -249,7 +337,6 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 4,
-    backgroundColor: Colors.secondaryDark,
   },
   tokenCardContent: { padding: Spacing.lg, paddingTop: Spacing.xl },
   tokenTop: {
@@ -259,40 +346,35 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.sm,
   },
   tokenLabelRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
-  tokenLabel: { color: Colors.textSecondary, textTransform: 'uppercase' },
+  tokenLabel: { textTransform: 'uppercase' },
   copyBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
     borderWidth: 1,
-    borderColor: Colors.primary,
     paddingHorizontal: Spacing.sm,
     paddingVertical: 4,
     borderRadius: Rounded.full,
   },
-  copyBtnText: { color: Colors.primary, textTransform: 'uppercase' },
+  copyBtnText: { textTransform: 'uppercase' },
   tokenValue: {
-    color: Colors.primary,
     fontSize: 28,
     letterSpacing: 4,
     textAlign: 'center',
     marginVertical: Spacing.md,
   },
   tokenHint: {
-    color: Colors.textSecondary,
     textAlign: 'center',
     fontSize: 14,
   },
   receiptCard: {
     marginHorizontal: Spacing.containerMargin,
-    backgroundColor: Colors.surface,
     borderRadius: Rounded.lg,
     borderWidth: 1,
-    borderColor: Colors.outlineVariant,
     padding: Spacing.lg,
     marginBottom: Spacing.md,
   },
-  receiptTitle: { color: Colors.primary, marginBottom: Spacing.md },
+  receiptTitle: { marginBottom: Spacing.md },
   receiptRows: { gap: 4 },
   receiptRow: {
     flexDirection: 'row',
@@ -300,11 +382,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: Spacing.sm,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.surfaceContainerHighest,
   },
-  receiptRowLabel: { color: Colors.textSecondary },
-  receiptRowValue: { color: Colors.text },
-  statusGreen: { color: Colors.secondaryDark },
+  receiptRowLabel: {},
+  receiptRowValue: {},
+  statusGreen: {},
   actionsRow: {
     flexDirection: 'row',
     gap: Spacing.md,
@@ -317,11 +398,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: Spacing.xs,
     borderWidth: 1,
-    borderColor: Colors.primary,
     borderRadius: Rounded.full,
     paddingVertical: Spacing.sm,
   },
-  shareBtnText: { color: Colors.primary },
+  shareBtnText: {},
   downloadBtn: {
     flex: 1,
     flexDirection: 'row',
@@ -329,11 +409,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: Spacing.xs,
     borderWidth: 1,
-    borderColor: Colors.primary,
     borderRadius: Rounded.full,
     paddingVertical: Spacing.sm,
   },
-  downloadBtnText: { color: Colors.primary },
+  downloadBtnText: {},
   stickyFooter: {
     position: 'absolute',
     bottom: 0,
@@ -341,30 +420,26 @@ const styles = StyleSheet.create({
     right: 0,
     padding: Spacing.containerMargin,
     paddingBottom: Spacing.xl,
-    backgroundColor: Colors.background,
     borderTopWidth: 1,
-    borderTopColor: Colors.outlineVariant,
     gap: Spacing.sm,
   },
   homeBtn: {
     height: 52,
-    backgroundColor: Colors.primary,
     borderRadius: Rounded.full,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: Spacing.xs,
-    shadowColor: Colors.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.12,
     shadowRadius: 8,
     elevation: 4,
   },
-  homeBtnText: { color: Colors.white },
+  homeBtnText: {},
   buyAgainBtn: {
     height: 44,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  buyAgainBtnText: { color: Colors.textSecondary },
+  buyAgainBtnText: {},
 });

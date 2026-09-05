@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   StyleSheet,
   View,
@@ -10,56 +10,413 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
 import { MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
+import Svg, {
+  Path,
+  Defs,
+  LinearGradient,
+  Stop,
+  Circle,
+  Line,
+  G,
+} from 'react-native-svg';
 import { Spacing, Rounded, Typography } from '@/constants/theme';
 import { useTheme } from '@/context/ThemeContext';
 import { useApp, Transaction } from '@/context/AppContext';
+import { EnergyStatusService } from '@/services';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
+interface SpendingDataPoint {
+  label: string;
+  fullLabel: string;
+  amount: number;
+}
+
+function generateSmoothPath(points: { x: number; y: number }[]): string {
+  if (points.length === 0) return '';
+  if (points.length === 1) return `M ${points[0].x} ${points[0].y}`;
+
+  let d = `M ${points[0].x} ${points[0].y}`;
+  for (let i = 0; i < points.length - 1; i++) {
+    const current = points[i];
+    const next = points[i + 1];
+    const controlX = (current.x + next.x) / 2;
+    d += ` C ${controlX} ${current.y}, ${controlX} ${next.y}, ${next.x} ${next.y}`;
+  }
+  return d;
+}
+
+function generateAreaPath(points: { x: number; y: number }[], bottomY: number): string {
+  if (points.length === 0) return '';
+  const linePath = generateSmoothPath(points);
+  const first = points[0];
+  const last = points[points.length - 1];
+  return `${linePath} L ${last.x} ${bottomY} L ${first.x} ${bottomY} Z`;
+}
+
+function ElectricitySpendingLineChart({
+  transactions,
+  period,
+  onPeriodChange,
+  colors,
+}: {
+  transactions: Transaction[];
+  period: '7d' | '30d' | '90d';
+  onPeriodChange: (p: '7d' | '30d' | '90d') => void;
+  colors: any;
+}) {
+  const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
+  const purchases = transactions.filter((t) => t.type === 'purchase' && t.status === 'Completed');
+  const now = new Date();
+
+  const parseTxDate = (tx: Transaction): Date => {
+    if (tx.createdAt) {
+      const d = new Date(tx.createdAt);
+      if (!isNaN(d.getTime())) return d;
+    }
+    if (tx.date) {
+      const d = new Date(tx.date);
+      if (!isNaN(d.getTime())) return d;
+      if (tx.date.toLowerCase().includes('yesterday')) {
+        return new Date(Date.now() - 86400000);
+      }
+    }
+    return now;
+  };
+
+  let dataPoints: SpendingDataPoint[] = [];
+
+  if (period === '7d') {
+    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const fullDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    const amounts = Array(7).fill(0);
+
+    purchases.forEach((tx) => {
+      const txDate = parseTxDate(tx);
+      const diffDays = Math.floor((now.getTime() - txDate.getTime()) / (86400 * 1000));
+      if (diffDays >= 0 && diffDays < 7) {
+        const dayIdx = (txDate.getDay() + 6) % 7;
+        amounts[dayIdx] = (amounts[dayIdx] || 0) + Math.abs(Number(tx.amount) || 0);
+      }
+    });
+
+    dataPoints = days.map((label, i) => ({
+      label,
+      fullLabel: fullDays[i],
+      amount: amounts[i],
+    }));
+  } else if (period === '30d') {
+    const weeks = ['Week 1', 'Week 2', 'Week 3', 'Week 4', 'Week 5'];
+    const shortLabels = ['W1', 'W2', 'W3', 'W4', 'W5'];
+    const amounts = Array(5).fill(0);
+
+    purchases.forEach((tx) => {
+      const txDate = parseTxDate(tx);
+      const diffDays = Math.floor((now.getTime() - txDate.getTime()) / (86400 * 1000));
+      if (diffDays >= 0 && diffDays < 35) {
+        const weekIdx = Math.min(4, Math.max(0, 4 - Math.floor(diffDays / 7)));
+        amounts[weekIdx] = (amounts[weekIdx] || 0) + Math.abs(Number(tx.amount) || 0);
+      }
+    });
+
+    dataPoints = shortLabels.map((label, i) => ({
+      label,
+      fullLabel: weeks[i],
+      amount: amounts[i],
+    }));
+  } else {
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const currentMonth = now.getMonth();
+    const m3 = (currentMonth - 2 + 12) % 12;
+    const m2 = (currentMonth - 1 + 12) % 12;
+    const m1 = currentMonth;
+    const months = [monthNames[m3], monthNames[m2], monthNames[m1]];
+    const amounts = [0, 0, 0];
+
+    purchases.forEach((tx) => {
+      const txDate = parseTxDate(tx);
+      const diffMonths = (now.getFullYear() - txDate.getFullYear()) * 12 + (now.getMonth() - txDate.getMonth());
+      if (diffMonths >= 0 && diffMonths < 3) {
+        const idx = 2 - diffMonths;
+        amounts[idx] = (amounts[idx] || 0) + Math.abs(Number(tx.amount) || 0);
+      }
+    });
+
+    dataPoints = months.map((label, i) => ({
+      label,
+      fullLabel: label,
+      amount: amounts[i],
+    }));
+  }
+
+  const totalPeriodSpend = dataPoints.reduce((s, p) => s + p.amount, 0);
+  const maxAmount = Math.max(...dataPoints.map((p) => p.amount), 1);
+  const hasPurchases = purchases.length > 0;
+
+  const chartWidth = Math.min(SCREEN_WIDTH - 48, 380);
+  const chartHeight = 130;
+  const paddingH = 24;
+  const paddingV = 16;
+  const graphWidth = chartWidth - paddingH * 2;
+  const graphHeight = chartHeight - paddingV * 2;
+
+  const points = dataPoints.map((dp, i) => {
+    const x = paddingH + (i / Math.max(1, dataPoints.length - 1)) * graphWidth;
+    const normalizedAmount = totalPeriodSpend > 0 ? dp.amount / maxAmount : 0;
+    const y = paddingV + graphHeight - normalizedAmount * graphHeight;
+    return { x, y, dp, index: i };
+  });
+
+  const linePath = generateSmoothPath(points);
+  const areaPath = generateAreaPath(points, paddingV + graphHeight);
+  const activePoint = selectedIdx !== null ? points[selectedIdx] : null;
+
+  return (
+    <View style={[styles.chartCard, { backgroundColor: colors.cardBg, borderColor: colors.cardBorder }]}>
+      <View style={styles.chartHeader}>
+        <View style={{ flex: 1 }}>
+          <Text
+            style={[styles.chartTitle, Typography.headlineMd, { color: colors.primary }]}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.8}
+          >
+            Electricity Spending
+          </Text>
+          <Text style={[Typography.labelCaps, { color: colors.textSecondary, marginTop: 2, fontSize: 10 }]}>
+            {totalPeriodSpend > 0
+              ? `Total: ₦${totalPeriodSpend.toLocaleString()}`
+              : `${purchases.length} total ${purchases.length === 1 ? 'purchase' : 'purchases'}`}
+          </Text>
+        </View>
+        <View style={[styles.chartFilter, { backgroundColor: colors.surfaceContainer }]}>
+          {([
+            { key: '7d', label: '7D' },
+            { key: '30d', label: '30D' },
+            { key: '90d', label: '3M' },
+          ] as const).map((p) => (
+            <TouchableOpacity
+              key={p.key}
+              style={[styles.filterBtn, period === p.key ? [styles.filterBtnActive, { backgroundColor: colors.surface }] : null]}
+              onPress={() => {
+                setSelectedIdx(null);
+                onPeriodChange(p.key);
+              }}
+            >
+              <Text
+                style={[
+                  styles.filterBtnText,
+                  Typography.labelCaps,
+                  period === p.key ? { color: colors.primary } : { color: colors.textSecondary },
+                ]}
+              >
+                {p.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
+
+      {/* Selected Data Point Tooltip */}
+      {activePoint && (
+        <View style={[styles.chartTooltip, { backgroundColor: colors.surfaceContainerHigh, borderColor: colors.outlineVariant }]}>
+          <Text style={[Typography.labelCaps, { color: colors.textSecondary, fontSize: 10 }]}>
+            {activePoint.dp.fullLabel}
+          </Text>
+          <Text style={[Typography.headlineMd, { color: colors.primary, fontSize: 14 }]}>
+            ₦{activePoint.dp.amount.toLocaleString()}
+          </Text>
+        </View>
+      )}
+
+      {hasPurchases ? (
+        <View style={{ alignItems: 'center', marginTop: 8 }}>
+          <Svg width={chartWidth} height={chartHeight}>
+            <Defs>
+              <LinearGradient id="homeSpendGradient" x1="0" y1="0" x2="0" y2="1">
+                <Stop offset="0%" stopColor={colors.secondary} stopOpacity="0.35" />
+                <Stop offset="100%" stopColor={colors.secondary} stopOpacity="0.0" />
+              </LinearGradient>
+            </Defs>
+
+            {/* Grid Reference Lines */}
+            <Line
+              x1={paddingH}
+              y1={paddingV}
+              x2={chartWidth - paddingH}
+              y2={paddingV}
+              stroke={colors.outlineVariant}
+              strokeDasharray="4 4"
+              strokeWidth={0.8}
+            />
+            <Line
+              x1={paddingH}
+              y1={paddingV + graphHeight / 2}
+              x2={chartWidth - paddingH}
+              y2={paddingV + graphHeight / 2}
+              stroke={colors.outlineVariant}
+              strokeDasharray="4 4"
+              strokeWidth={0.8}
+            />
+            <Line
+              x1={paddingH}
+              y1={paddingV + graphHeight}
+              x2={chartWidth - paddingH}
+              y2={paddingV + graphHeight}
+              stroke={colors.outlineVariant}
+              strokeWidth={1}
+            />
+
+            {/* Area Fill */}
+            {totalPeriodSpend > 0 && <Path d={areaPath} fill="url(#homeSpendGradient)" />}
+
+            {/* Main Trend Line */}
+            <Path
+              d={linePath}
+              fill="none"
+              stroke={colors.secondary}
+              strokeWidth={2.5}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+
+            {/* Data Point Circles */}
+            {points.map((p, i) => (
+              <G key={i}>
+                <Circle
+                  cx={p.x}
+                  cy={p.y}
+                  r={selectedIdx === i ? 6 : p.dp.amount > 0 ? 4 : 2}
+                  fill={p.dp.amount > 0 ? colors.secondary : colors.surfaceContainerHigh}
+                  stroke={colors.surface}
+                  strokeWidth={selectedIdx === i ? 2 : 1}
+                />
+              </G>
+            ))}
+          </Svg>
+
+          {/* X-Axis Labels */}
+          <View style={[styles.chartLabelsRow, { width: chartWidth, paddingHorizontal: paddingH }]}>
+            {points.map((p, i) => (
+              <TouchableOpacity
+                key={i}
+                onPress={() => setSelectedIdx(selectedIdx === i ? null : i)}
+                style={{ alignItems: 'center' }}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Text
+                  style={[
+                    styles.chartBarLabel,
+                    Typography.labelCaps,
+                    {
+                      color: selectedIdx === i ? colors.primary : colors.textSecondary,
+                      fontWeight: selectedIdx === i || p.dp.amount > 0 ? '700' : '400',
+                    },
+                  ]}
+                >
+                  {p.dp.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+      ) : (
+        <View style={{ paddingVertical: 24, alignItems: 'center', justifyContent: 'center' }}>
+          <MaterialIcons name="show-chart" size={32} color={colors.outline} style={{ marginBottom: 6, opacity: 0.6 }} />
+          <Text style={[Typography.bodyMd, { color: colors.textSecondary, fontSize: 13 }]}>
+            No purchases recorded yet.
+          </Text>
+        </View>
+      )}
+    </View>
+  );
+}
+
 function CircularProgress({
-  kwhLeft = 0,
+  kwhLeft = null,
   progress = 0,
   size = 115,
   colors,
 }: {
-  kwhLeft?: number;
+  kwhLeft?: number | null;
   progress?: number;
   size?: number;
   colors: any;
 }) {
   const strokeWidth = 8;
-  const clampedProgress = Math.min(100, Math.max(0, progress));
+  const isAvailable = kwhLeft !== null && kwhLeft !== undefined && !isNaN(Number(kwhLeft));
+  const safeKwh = isAvailable ? Math.max(0, Math.round(Number(kwhLeft))) : null;
+  const clampedProgress = isAvailable && !isNaN(Number(progress)) ? Math.min(100, Math.max(0, Number(progress))) : 0;
+
+  // Authoritative energy status color calculation (Green > 50%, Yellow > 20% & <= 50%, Red <= 20%)
+  const statusResult = EnergyStatusService.getEnergyStatus(progress, kwhLeft, colors);
+  const activeArcColor = statusResult.color;
+
+  // Clockwise SVG progress geometry starting at 12 o'clock (top)
+  const center = size / 2;
+  const radius = (size - strokeWidth) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const strokeDashoffset = circumference - (clampedProgress / 100) * circumference;
 
   return (
-    <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
-      <View
-        style={{
-          position: 'absolute',
-          width: size,
-          height: size,
-          borderRadius: size / 2,
-          borderWidth: strokeWidth,
-          borderColor: colors.surfaceContainerHigh,
-        }}
-      />
-      <View
-        style={{
-          position: 'absolute',
-          width: size,
-          height: size,
-          borderRadius: size / 2,
-          borderWidth: strokeWidth,
-          borderColor: 'transparent',
-          borderTopColor: clampedProgress > 0 ? colors.secondary : 'transparent',
-          borderRightColor: clampedProgress > 25 ? colors.secondary : 'transparent',
-          borderBottomColor: clampedProgress > 50 ? colors.secondary : 'transparent',
-          borderLeftColor: clampedProgress > 75 ? colors.secondary : 'transparent',
-          transform: [{ rotate: '-45deg' }],
-        }}
-      />
+    <View
+      style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}
+      accessible={true}
+      accessibilityRole="progressbar"
+      accessibilityLabel={statusResult.accessibilityLabel}
+      accessibilityValue={{
+        min: 0,
+        max: 100,
+        now: Math.round(clampedProgress),
+        text: `${safeKwh !== null ? safeKwh + ' kWh' : 'N/A'} remaining (${statusResult.label})`,
+      }}
+    >
+      <Svg width={size} height={size} style={{ position: 'absolute' }}>
+        {/* Background track circle */}
+        <Circle
+          cx={center}
+          cy={center}
+          r={radius}
+          stroke={colors.surfaceContainerHigh}
+          strokeWidth={strokeWidth}
+          fill="none"
+        />
+        {/* Active progress arc reading down clockwise from top (12 o'clock) */}
+        {isAvailable && clampedProgress > 0 && (
+          <G rotation="-90" origin={`${center}, ${center}`}>
+            <Circle
+              cx={center}
+              cy={center}
+              r={radius}
+              stroke={activeArcColor}
+              strokeWidth={strokeWidth}
+              strokeDasharray={circumference}
+              strokeDashoffset={strokeDashoffset}
+              strokeLinecap="round"
+              fill="none"
+            />
+          </G>
+        )}
+      </Svg>
       <View style={{ alignItems: 'center' }}>
-        <Text style={[styles.ringValue, { color: colors.primary }]}>{kwhLeft}</Text>
-        <Text style={[styles.ringLabel, { color: colors.textSecondary }]}>kWh Left</Text>
+        {isAvailable && safeKwh !== null ? (
+          <>
+            <Text style={[styles.ringValue, { color: colors.primary }]}>{safeKwh}</Text>
+            <Text style={[styles.ringLabel, { color: colors.textSecondary }]}>kWh Left</Text>
+          </>
+        ) : (
+          <>
+            <Text style={[styles.ringValue, { color: colors.outline, fontSize: 13, letterSpacing: 0.5 }]}>
+              N/A
+            </Text>
+            <Text style={[styles.ringLabel, { color: colors.textSecondary, fontSize: 10 }]}>
+              kWh Left
+            </Text>
+            <Text style={{ fontSize: 8, color: colors.outline, textTransform: 'uppercase', marginTop: 2, textAlign: 'center' }}>
+              No Telemetry
+            </Text>
+          </>
+        )}
       </View>
     </View>
   );
@@ -82,11 +439,35 @@ function ExpandableTransaction({
       activeOpacity={0.8}
     >
       <View style={styles.txRow}>
-        <View style={[styles.txIcon, { backgroundColor: colors.surfaceContainerHigh }]}>
+        <View
+          style={[
+            styles.txIcon,
+            {
+              backgroundColor:
+                tx.status === 'Failed'
+                  ? colors.errorBg
+                  : isFunding
+                  ? colors.successBg
+                  : colors.surfaceContainerHigh,
+            },
+          ]}
+        >
           <MaterialIcons
-            name={isFunding ? 'account-balance-wallet' : 'electric-bolt'}
+            name={
+              tx.status === 'Failed'
+                ? 'error-outline'
+                : isFunding
+                ? 'account-balance-wallet'
+                : 'electric-bolt'
+            }
             size={22}
-            color={colors.primary}
+            color={
+              tx.status === 'Failed'
+                ? colors.error
+                : isFunding
+                ? colors.secondaryDark
+                : colors.primary
+            }
           />
         </View>
         <View style={styles.txInfo}>
@@ -102,7 +483,14 @@ function ExpandableTransaction({
             style={[
               styles.txAmount,
               Typography.metricUnit,
-              { color: isFunding ? colors.secondaryDark : colors.primary },
+              {
+                color:
+                  tx.status === 'Failed'
+                    ? colors.error
+                    : isFunding
+                    ? colors.secondaryDark
+                    : colors.primary,
+              },
             ]}
           >
             {isFunding ? '+' : '-'}₦{Math.abs(tx.amount).toLocaleString()}
@@ -192,6 +580,16 @@ function ExpandableTransaction({
                 </Text>
               </View>
             </View>
+            {(tx.description || tx.errorMessage || tx.status === 'Failed') && (
+              <View style={[styles.txDetailRow, { alignItems: 'flex-start', paddingTop: 4 }]}>
+                <Text style={[styles.txDetailLabel, Typography.labelCaps, { color: colors.error }]}>
+                  Detail
+                </Text>
+                <Text style={[styles.txDetailValue, Typography.bodyMd, { color: colors.error, flex: 1, textAlign: 'right' }]}>
+                  {tx.errorMessage || tx.description || 'Transaction could not be completed by provider.'}
+                </Text>
+              </View>
+            )}
           </View>
 
           {/* Token display */}
@@ -229,57 +627,166 @@ export default function HomeScreen() {
     selectMeter,
     transactions,
     unreadCount,
+    unreadSupportCount,
+    refreshSupportCount,
+    consumptionAnalytics,
     appliances,
     energyProfile,
+    addNotification,
   } = useApp();
 
   useFocusEffect(
     useCallback(() => {
       refreshWallet?.();
       refreshTransactions?.();
-    }, [refreshWallet, refreshTransactions])
+      refreshSupportCount?.();
+    }, [refreshWallet, refreshTransactions, refreshSupportCount])
   );
   const activeMeter = meters.find((m) => m.id === activeMeterId) || (meters.length > 0 ? meters[0] : undefined);
   const firstName = userName.split(' ')[0];
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
-  // Dynamic baseline calculation from logged appliance profile
+  const [homeChartPeriod, setHomeChartPeriod] = useState<'7d' | '30d' | '90d'>('7d');
+
+  // Authoritative analytics values from single source of truth
+  const avgDailySpend = consumptionAnalytics?.spending.averageDailySpendNaira;
+  const purchaseVelocity = consumptionAnalytics?.purchasing.purchaseVelocity;
+  const totalPurchases = consumptionAnalytics?.purchasing.totalPurchases || 0;
+
+  // Chart data from single source of truth
+  const chartBuckets = consumptionAnalytics?.periodChart?.buckets || [];
+  const maxSpend = Math.max(...chartBuckets.map((b) => b.amountNaira), 1);
+  const hasChartData = chartBuckets.some((b) => b.amountNaira > 0);
+
+  // Purchase transactions strictly scoped to active meter (no fallback to all purchases)
+  const purchaseTxs = transactions.filter((t) => t.type === 'purchase' && t.status === 'Completed');
+  const meterPurchaseTxs = activeMeter
+    ? purchaseTxs.filter((t) => {
+        if (!t.meterNumber) return false;
+        const cleanTx = t.meterNumber.replace(/\s/g, '');
+        const cleanMeter = activeMeter.number.replace(/\s/g, '');
+        return cleanTx.includes(cleanMeter.slice(-4)) || cleanMeter.includes(cleanTx.slice(-4));
+      })
+    : [];
+  const relevantPurchases = meterPurchaseTxs;
+
+  // Safe timestamp parser
+  const parseTxTime = (tx: Transaction): number => {
+    if (tx.createdAt) {
+      const t = new Date(tx.createdAt).getTime();
+      if (!isNaN(t) && t > 0) return t;
+    }
+    if (tx.date) {
+      const t = new Date(tx.date).getTime();
+      if (!isNaN(t) && t > 0) return t;
+      if (tx.date.toLowerCase().includes('today')) return Date.now() - 3600000;
+      if (tx.date.toLowerCase().includes('yesterday')) return Date.now() - 86400000;
+    }
+    return Date.now() - 3600000;
+  };
+
+  const sortedPurchases = [...relevantPurchases].sort((a, b) => parseTxTime(a) - parseTxTime(b));
+
+  const totalPurchasedUnits = sortedPurchases.reduce((sum, tx) => {
+    const rawUnits = tx.units || (tx.amount ? Math.round((Math.abs(Number(tx.amount)) / 206.8) * 10) / 10 : 0);
+    const u = !isNaN(Number(rawUnits)) && Number(rawUnits) > 0 ? Number(rawUnits) : 0;
+    return sum + u;
+  }, 0);
+
   const applianceDailyKwh = appliances.reduce(
     (sum, a) => sum + (Number(a.estimated_daily_kwh) || 0),
     0
   );
-  const defaultDailyKwh = energyProfile?.account_type === 'business' ? 24.0 : 8.5;
-  const dailyBaselineKwh = applianceDailyKwh > 0 ? applianceDailyKwh : defaultDailyKwh;
+  const defaultDailyKwh = energyProfile?.account_type === 'business' ? 24.0 : (energyProfile?.account_type ? 8.5 : 0);
+  // Profile-based daily rate is the authoritative display value — always reflects what the
+  // user explicitly configured in energy setup (appliances > account-type default > 5 kWh).
+  // We do NOT override this with the analytics history-derived rate to prevent post-load flicker.
+  const profileDailyKwh = applianceDailyKwh > 0 ? applianceDailyKwh : defaultDailyKwh;
+  const effectiveDailyKwh = profileDailyKwh > 0 ? profileDailyKwh : 5.0;
 
-  // Average tariff rate (NGN/kWh)
-  const purchaseTxs = transactions.filter((t) => t.type === 'purchase');
-  const avgTariffRate =
-    purchaseTxs.length > 0 && purchaseTxs[0].units
-      ? Math.abs(purchaseTxs[0].amount) / purchaseTxs[0].units
-      : 206.8;
-  const avgDailyCost = Math.round(dailyBaselineKwh * avgTariffRate);
+  const displayDailyUsage =
+    effectiveDailyKwh > 0
+      ? `${effectiveDailyKwh.toFixed(1)} kWh/day`
+      : 'Not enough data';
 
-  // Latest purchase & Remaining units calculation
-  const latestPurchase =
-    purchaseTxs.find(
-      (t) =>
-        !t.meterNumber ||
-        (activeMeter &&
-          t.meterNumber.replace(/\s/g, '').includes(activeMeter.number.replace(/\s/g, '').slice(-4)))
-    ) || purchaseTxs[0];
+  // Cumulative energy ledger balance:
+  // Decays purchased units using the profile burn rate between each purchase timestamp,
+  // then from the last purchase up to now. KWH LEFT = total purchased minus decayed usage.
+  let runningBalanceKwh = 0;
+  let lastTimestamp = sortedPurchases.length > 0 ? parseTxTime(sortedPurchases[0]) : Date.now();
 
-  const totalPurchasedUnits =
-    latestPurchase?.units ||
-    (latestPurchase?.amount ? Math.round((Math.abs(latestPurchase.amount) / 206.8) * 10) / 10 : 0);
-  const remainingKwh = totalPurchasedUnits > 0 ? Math.max(0, Math.round(totalPurchasedUnits)) : 0;
+  for (const tx of sortedPurchases) {
+    const txTime = parseTxTime(tx);
+    const timeDeltaDays = txTime >= lastTimestamp
+      ? Math.max(0, (txTime - lastTimestamp) / (86400 * 1000))
+      : 0;
+    runningBalanceKwh = Math.max(0, runningBalanceKwh - (effectiveDailyKwh * timeDeltaDays));
+
+    const rawUnits = tx.units || (tx.amount ? Math.round((Math.abs(Number(tx.amount)) / 206.8) * 10) / 10 : 0);
+    const u = !isNaN(Number(rawUnits)) && Number(rawUnits) > 0 ? Number(rawUnits) : 0;
+    runningBalanceKwh += u;
+    lastTimestamp = txTime;
+  }
+
+  // Decay from last purchase to now
+  const finalDeltaDays = Math.max(0, (Date.now() - lastTimestamp) / (86400 * 1000));
+  runningBalanceKwh = Math.max(0, runningBalanceKwh - (effectiveDailyKwh * finalDeltaDays));
+
+  // KWH LEFT: always the locally computed ledger balance (profile burn rate applied consistently).
+  // The analytics service uses its own internal fallback rate which can differ, causing mismatch.
+  // Using the local value ensures KWH LEFT, daily usage, and days remaining are always coherent.
+  const calculatedRemainingKwh = totalPurchasedUnits > 0 ? Math.round(runningBalanceKwh) : null;
+  const remainingKwh =
+    calculatedRemainingKwh !== null
+      ? Math.max(0, calculatedRemainingKwh)
+      : null;
+
   const daysRemaining =
-    remainingKwh > 0 && dailyBaselineKwh > 0 ? Math.max(1, Math.round(remainingKwh / dailyBaselineKwh)) : 0;
+    remainingKwh !== null && remainingKwh > 0 && effectiveDailyKwh > 0
+      ? Math.max(1, Math.round(remainingKwh / effectiveDailyKwh))
+      : 0;
   const progressPercent =
-    totalPurchasedUnits > 0
+    totalPurchasedUnits > 0 && remainingKwh !== null
       ? Math.min(100, Math.max(5, Math.round((remainingKwh / totalPurchasedUnits) * 100)))
       : 0;
 
-  const recentTransactions = transactions.slice(0, 3);
+  // Authoritative status transition handler with persistence and anti-spam protection
+  useEffect(() => {
+    if (!activeMeter?.id) return;
+    const statusResult = EnergyStatusService.getEnergyStatus(
+      progressPercent,
+      remainingKwh,
+      colors,
+      undefined,
+      daysRemaining
+    );
+    if (statusResult.status) {
+      EnergyStatusService.handleMeterStatusTransition(
+        activeMeter.id,
+        statusResult.status,
+        addNotification
+      );
+    }
+  }, [activeMeter?.id, progressPercent, remainingKwh]);
+  const totalPurchaseSpend = relevantPurchases
+    .filter((t) => t.type === 'purchase' && t.status === 'Completed')
+    .reduce((acc, t) => acc + Math.abs(Number(t.amount) || 0), 0);
+
+  const monthlySpent =
+    consumptionAnalytics?.spending.currentPeriodSpendNaira && consumptionAnalytics.spending.currentPeriodSpendNaira > 0
+      ? consumptionAnalytics.spending.currentPeriodSpendNaira
+      : totalPurchaseSpend;
+
+  const recentTransactions = activeMeter
+    ? transactions
+        .filter((t) => {
+          if (!t.meterNumber) return false;
+          const cleanTx = t.meterNumber.replace(/\s/g, '');
+          const cleanMeter = activeMeter.number.replace(/\s/g, '');
+          return cleanTx.includes(cleanMeter.slice(-4)) || cleanMeter.includes(cleanTx.slice(-4));
+        })
+        .slice(0, 3)
+    : [];
 
   const getHour = () => {
     const h = new Date().getHours();
@@ -304,35 +811,64 @@ export default function HomeScreen() {
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.headerLeft}>
-            <View style={[styles.avatar, { backgroundColor: colors.primary }]}>
+            <TouchableOpacity
+              style={[styles.avatar, { backgroundColor: colors.primary }]}
+              onPress={() => router.push('/personal-info')}
+              activeOpacity={0.8}
+            >
               <Text style={[styles.avatarText, Typography.headlineMd, { color: colors.surface }]}>
                 {firstName.charAt(0).toUpperCase()}
               </Text>
-            </View>
-            <View>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => router.push('/personal-info')}
+              activeOpacity={0.8}
+            >
               <Text style={[styles.greeting, Typography.labelCaps, { color: colors.textSecondary }]}>
                 Good {getHour()}
               </Text>
               <Text style={[styles.userName, Typography.headlineLgMobile, { color: colors.primary }]}>
                 {firstName} ⚡
               </Text>
-            </View>
+            </TouchableOpacity>
           </View>
 
-          {/* Bell with unread badge */}
-          <TouchableOpacity
-            style={[styles.notifButton, { backgroundColor: colors.surfaceContainerHighest }]}
-            onPress={() => router.push('/notifications')}
-          >
-            <MaterialIcons name="notifications-none" size={24} color={colors.primary} />
-            {unreadCount > 0 && (
-              <View style={styles.bellBadge}>
-                <Text style={styles.bellBadgeText}>
-                  {unreadCount > 9 ? '9+' : unreadCount}
-                </Text>
-              </View>
-            )}
-          </TouchableOpacity>
+          {/* Header Action Buttons: Support + Bell */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.xs }}>
+            {/* Customer Support Button */}
+            <TouchableOpacity
+              style={[styles.notifButton, { backgroundColor: colors.surfaceContainerHighest }]}
+              onPress={() => router.push('/support' as any)}
+              accessibilityLabel="Customer Support Center"
+              accessibilityRole="button"
+            >
+              <MaterialIcons name="headset-mic" size={22} color={colors.primary} />
+              {unreadSupportCount > 0 && (
+                <View style={styles.bellBadge}>
+                  <Text style={styles.bellBadgeText}>
+                    {unreadSupportCount > 9 ? '9+' : unreadSupportCount}
+                  </Text>
+                </View>
+              )}
+            </TouchableOpacity>
+
+            {/* Bell with unread badge */}
+            <TouchableOpacity
+              style={[styles.notifButton, { backgroundColor: colors.surfaceContainerHighest }]}
+              onPress={() => router.push('/notifications')}
+              accessibilityLabel="Notifications"
+              accessibilityRole="button"
+            >
+              <MaterialIcons name="notifications-none" size={24} color={colors.primary} />
+              {unreadCount > 0 && (
+                <View style={styles.bellBadge}>
+                  <Text style={styles.bellBadgeText}>
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Meter Selector Pill + Dropdown */}
@@ -454,31 +990,40 @@ export default function HomeScreen() {
                 >
                   {daysRemaining > 0 ? (
                     <>
-                      Est. remaining:{' '}
+                      Est. Days:{' '}
                       <Text style={{ color: colors.secondaryDark, fontFamily: 'Inter_700Bold' }}>
-                        {daysRemaining} {daysRemaining === 1 ? 'day' : 'days'}
+                        ~{daysRemaining} {daysRemaining === 1 ? 'day' : 'days'}
+                      </Text>
+                    </>
+                  ) : totalPurchases === 0 ? (
+                    <>
+                      Status:{' '}
+                      <Text style={{ color: colors.textSecondary, fontFamily: 'Inter_700Bold' }}>
+                        Awaiting recharge
                       </Text>
                     </>
                   ) : (
                     <>
                       Status:{' '}
-                      <Text style={{ color: colors.error, fontFamily: 'Inter_700Bold' }}>
-                        Recharge needed
+                      <Text style={{ color: colors.secondaryDark, fontFamily: 'Inter_700Bold' }}>
+                        Need 2+ purchases
                       </Text>
                     </>
                   )}
                 </Text>
                 <Text style={[styles.energySubtitle, { color: colors.textSecondary }]} numberOfLines={2}>
-                  {appliances.length > 0
-                    ? `Based on ${dailyBaselineKwh.toFixed(1)} kWh/day appliance profile`
-                    : 'Based on estimated daily consumption'}
+                  {purchaseVelocity
+                    ? `Purchase cadence: ${purchaseVelocity}`
+                    : totalPurchases === 0
+                    ? 'Recharge your meter to unlock purchase cadence intelligence'
+                    : 'Estimated from historical purchase cadence'}
                 </Text>
                 <View style={[styles.dailyAvgRow, { backgroundColor: colors.surfaceContainerLow, borderColor: colors.outlineVariant }]}>
                   <Text style={[styles.dailyAvgLabel, { color: colors.textSecondary }]} numberOfLines={1} adjustsFontSizeToFit>
                     Avg. daily usage
                   </Text>
-                  <Text style={[styles.dailyAvgValue, { color: colors.primary }]}>
-                    ₦{avgDailyCost.toLocaleString()}/day
+                  <Text style={[styles.dailyAvgValue, { color: effectiveDailyKwh > 0 ? colors.primary : colors.textSecondary }]}>
+                    {displayDailyUsage}
                   </Text>
                 </View>
               </View>
@@ -523,7 +1068,7 @@ export default function HomeScreen() {
           <View style={[styles.statCard, { flex: 1 }]}>
             <Text style={[styles.statLabel, Typography.labelCaps, { color: colors.textSecondary }]}>This Month</Text>
             <Text style={[styles.statValue, Typography.headlineMd, { color: colors.primary }]} numberOfLines={1} adjustsFontSizeToFit>
-              ₦{transactions.filter((t) => t.type === 'purchase').reduce((acc, t) => acc + Math.abs(t.amount), 0).toLocaleString()}
+              ₦{monthlySpent.toLocaleString()}
             </Text>
             <Text style={[styles.statSubLabel, Typography.metricUnit, { color: colors.outline }]}>Spent</Text>
           </View>
@@ -545,14 +1090,16 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Alert Card - Show only when there is usage history */}
-        {transactions.length > 0 && (
+        {/* Alert Card - Show only when statistically justified by real comparison */}
+        {consumptionAnalytics?.usageAlert?.shouldShowAlert && (
           <View style={[styles.alertCard, { backgroundColor: colors.errorBg, borderColor: 'rgba(186,26,26,0.1)' }]}>
             <MaterialIcons name="warning-amber" size={20} color={colors.onErrorText} />
             <View style={{ flex: 1 }}>
-              <Text style={[styles.alertTitle, Typography.metricUnit, { color: colors.onErrorText }]}>Your usage is higher than usual</Text>
+              <Text style={[styles.alertTitle, Typography.metricUnit, { color: colors.onErrorText }]}>
+                {consumptionAnalytics.usageAlert.alertTitle}
+              </Text>
               <Text style={[styles.alertBody, Typography.bodyMd, { color: colors.onErrorText, opacity: 0.8 }]}>
-                Consider reducing high-drain appliance use during peak hours.
+                {consumptionAnalytics.usageAlert.alertBody}
               </Text>
             </View>
           </View>
@@ -592,47 +1139,13 @@ export default function HomeScreen() {
           ))}
         </View>
 
-        {/* Usage Chart */}
-        <View style={[styles.chartCard, { backgroundColor: colors.cardBg, borderColor: colors.cardBorder }]}>
-          <View style={styles.chartHeader}>
-            <Text
-              style={[styles.chartTitle, Typography.headlineMd, { color: colors.primary }]}
-              numberOfLines={1}
-              adjustsFontSizeToFit
-              minimumFontScale={0.8}
-            >
-              Electricity Spending
-            </Text>
-            <View style={[styles.chartFilter, { backgroundColor: colors.surfaceContainer }]}>
-              {['7D', '30D', '3M'].map((period, i) => (
-                <TouchableOpacity
-                  key={period}
-                  style={[styles.filterBtn, i === 0 ? [styles.filterBtnActive, { backgroundColor: colors.surface }] : null]}
-                >
-                  <Text
-                    style={[
-                      styles.filterBtnText,
-                      Typography.labelCaps,
-                      i === 0 ? { color: colors.primary } : { color: colors.textSecondary },
-                    ]}
-                  >
-                    {period}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-          <View style={styles.chartBars}>
-            {(transactions.length > 0 ? [60, 80, 45, 90, 70, 55, 75] : [0, 0, 0, 0, 0, 0, 0]).map((h, i) => (
-              <View key={i} style={styles.chartBarWrapper}>
-                <View style={[styles.chartBar, { height: Math.max(4, (h / 100) * 100), backgroundColor: colors.secondary, opacity: h > 0 ? 0.75 : 0.2 }]} />
-                <Text style={[styles.chartBarLabel, Typography.labelCaps, { color: colors.outline }]}>
-                  {['M', 'T', 'W', 'T', 'F', 'S', 'S'][i]}
-                </Text>
-              </View>
-            ))}
-          </View>
-        </View>
+        {/* Electricity Spending Line Chart */}
+        <ElectricitySpendingLineChart
+          transactions={transactions}
+          period={homeChartPeriod}
+          onPeriodChange={setHomeChartPeriod}
+          colors={colors}
+        />
 
         {/* Recent Activity */}
         <View style={styles.recentSection}>
@@ -951,6 +1464,20 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   filterBtnText: {},
+  chartTooltip: {
+    alignSelf: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: Rounded.md,
+    borderWidth: 1,
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  chartLabelsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 8,
+  },
   chartBars: {
     flexDirection: 'row',
     alignItems: 'flex-end',

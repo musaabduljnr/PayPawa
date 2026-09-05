@@ -3,6 +3,7 @@ import {
   StyleSheet,
   View,
   Text,
+  TextInput,
   TouchableOpacity,
   ScrollView,
   Animated,
@@ -13,8 +14,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { WebView } from 'react-native-webview';
 import { MaterialIcons, MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
-import { Colors, Spacing, Rounded, Typography } from '@/constants/theme';
+import { Spacing, Rounded, Typography } from '@/constants/theme';
 import { useApp } from '@/context/AppContext';
+import { useTheme } from '@/context/ThemeContext';
 import { WalletFundingService } from '@/services/wallet-funding.service';
 
 const PRESET_AMOUNTS = [5000, 10000, 20000, 50000];
@@ -24,10 +26,10 @@ type PaymentMethod = 'card' | 'transfer' | 'ussd';
 
 export default function FundWalletScreen() {
   const { walletBalance, fundWallet, refreshWallet, refreshTransactions } = useApp();
+  const { colors, isDark } = useTheme();
   const [step, setStep] = useState<Step>('amount');
   const [amountStr, setAmountStr] = useState('');
   const [method, setMethod] = useState<PaymentMethod>('card');
-  const [copiedAccount, setCopiedAccount] = useState(false);
   const [fundingRef, setFundingRef] = useState('');
   const [fundingError, setFundingError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -212,35 +214,34 @@ export default function FundWalletScreen() {
     ['', '0', 'back'],
   ];
 
-  const virtualAccountNumber = virtualAccountInfo?.accountNumber || '9902 4819 5032';
-
-  const copyToClipboard = () => {
-    setCopiedAccount(true);
-    setTimeout(() => setCopiedAccount(false), 2000);
-  };
-
   return (
-    <SafeAreaView style={styles.container}>
-      {/* STEP 1: AMOUNT INPUT */}
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+      {/* STEP 1: ENTER AMOUNT */}
       {step === 'amount' && (
-        <>
-          <View style={styles.topBar}>
-            <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-              <MaterialIcons name="arrow-back" size={22} color={Colors.text} />
+        <View style={{ flex: 1 }}>
+          <View style={[styles.topBar, { borderBottomColor: colors.outlineVariant }]}>
+            <TouchableOpacity
+              style={[styles.backBtn, { backgroundColor: colors.surfaceContainer }]}
+              onPress={() => router.back()}
+              activeOpacity={0.7}
+            >
+              <MaterialIcons name="arrow-back" size={22} color={colors.text} />
             </TouchableOpacity>
-            <Text style={[styles.topBarTitle, Typography.headlineMd]}>Fund Wallet</Text>
+            <Text style={[styles.topBarTitle, Typography.headlineMd, { color: colors.text }]}>Fund Wallet</Text>
             <View style={{ width: 40 }} />
           </View>
 
-          <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-            {/* Current Balance Banner */}
-            <View style={styles.balanceCard}>
-              <View style={styles.balanceCardIcon}>
-                <MaterialIcons name="account-balance-wallet" size={22} color={Colors.primary} />
+          <View style={{ flex: 1, padding: 20 }}>
+            {/* Balance Banner */}
+            <View style={[styles.balanceCard, { backgroundColor: colors.surface, borderColor: colors.outlineVariant }]}>
+              <View style={[styles.balanceCardIcon, { backgroundColor: colors.surfaceContainerHigh }]}>
+                <MaterialIcons name="account-balance-wallet" size={22} color={colors.secondaryDark} />
               </View>
               <View>
-                <Text style={[styles.balanceCardLabel, Typography.labelCaps]}>Current Wallet Balance</Text>
-                <Text style={[styles.balanceCardValue, Typography.headlineMd]}>
+                <Text style={[styles.balanceCardLabel, Typography.labelCaps, { color: colors.textSecondary }]}>
+                  Current Wallet Balance
+                </Text>
+                <Text style={[styles.balanceCardValue, Typography.headlineMd, { color: colors.primary }]}>
                   ₦{walletBalance.toLocaleString()}
                 </Text>
               </View>
@@ -248,16 +249,29 @@ export default function FundWalletScreen() {
 
             {/* Amount Display */}
             <View style={styles.amountSection}>
-              <Text style={[styles.amountLabel, Typography.labelCaps]}>Enter Funding Amount</Text>
+              <Text style={[styles.amountLabel, Typography.labelCaps, { color: colors.textSecondary }]}>
+                Enter Funding Amount
+              </Text>
               <View style={styles.amountDisplay}>
-                <Text style={[styles.currencySymbol, Typography.displayMetrics]}>₦</Text>
-                <Text style={[styles.amountValue, Typography.displayMetrics]}>
-                  {amountStr || '0'}
-                </Text>
+                <Text style={[styles.currencySymbol, Typography.displayMetrics, { color: colors.textSecondary }]}>₦</Text>
+                <TextInput
+                  style={[styles.amountValueInput, Typography.displayMetrics, { color: colors.text }]}
+                  keyboardType="number-pad"
+                  value={amountStr}
+                  onChangeText={(text) => {
+                    const clean = text.replace(/[^0-9]/g, '');
+                    if (clean.length > 7) return;
+                    const num = Number(clean);
+                    setAmountStr(clean ? num.toLocaleString() : '');
+                  }}
+                  placeholder="0"
+                  placeholderTextColor={colors.outline}
+                  maxLength={10}
+                />
               </View>
-              <View style={styles.amountUnderline} />
+              <View style={[styles.amountUnderline, { backgroundColor: colors.surfaceContainerHigh }]} />
               {amount > 0 && amount < 500 && (
-                <Text style={[styles.minNotice, Typography.labelCaps]}>
+                <Text style={[styles.minNotice, Typography.labelCaps, { color: colors.error }]}>
                   Minimum funding amount is ₦500
                 </Text>
               )}
@@ -268,14 +282,27 @@ export default function FundWalletScreen() {
               {PRESET_AMOUNTS.map((preset) => (
                 <TouchableOpacity
                   key={preset}
-                  style={[styles.presetBtn, amount === preset ? styles.presetBtnActive : null]}
+                  style={[
+                    styles.presetBtn,
+                    { backgroundColor: colors.surface, borderColor: colors.outlineVariant },
+                    amount === preset
+                      ? {
+                          backgroundColor: isDark ? colors.secondary : colors.primary,
+                          borderColor: isDark ? colors.secondary : colors.primary,
+                        }
+                      : null,
+                  ]}
                   onPress={() => setAmountStr(preset.toLocaleString())}
+                  activeOpacity={0.7}
                 >
                   <Text
                     style={[
                       styles.presetBtnText,
                       Typography.metricUnit,
-                      amount === preset ? styles.presetBtnTextActive : null,
+                      { color: colors.text },
+                      amount === preset
+                        ? { color: isDark ? colors.background : colors.white, fontWeight: '700' }
+                        : null,
                     ]}
                   >
                     ₦{preset.toLocaleString()}
@@ -283,167 +310,247 @@ export default function FundWalletScreen() {
                 </TouchableOpacity>
               ))}
             </View>
-
-            {/* Keypad */}
-            <View style={styles.keypad}>
-              {KEYPAD.map((row, ri) => (
-                <View key={ri} style={styles.keypadRow}>
-                  {row.map((key, ki) => (
-                    <TouchableOpacity
-                      key={ki}
-                      style={[styles.keypadKey, !key ? styles.keypadKeyEmpty : null]}
-                      onPress={() => key && handleKeypad(key)}
-                      disabled={!key}
-                    >
-                      {key === 'back' ? (
-                        <MaterialIcons name="backspace" size={22} color={Colors.text} />
-                      ) : (
-                        <Text style={[styles.keypadKeyText, Typography.headlineMd]}>{key}</Text>
-                      )}
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              ))}
-            </View>
-          </ScrollView>
+          </View>
 
           {/* Sticky CTA */}
-          <View style={styles.stickyFooter}>
+          <View style={[styles.stickyFooter, { backgroundColor: colors.background, borderTopColor: colors.outlineVariant }]}>
             <TouchableOpacity
-              style={[styles.ctaBtn, (!amountStr || amount < 500) ? styles.ctaBtnDisabled : null]}
+              style={[
+                styles.ctaBtn,
+                { backgroundColor: isDark ? colors.secondary : colors.primary },
+                (!amountStr || amount < 500) ? styles.ctaBtnDisabled : null,
+              ]}
               onPress={handleContinueToMethod}
               disabled={!amountStr || amount < 500}
+              activeOpacity={0.85}
             >
-              <Text style={[styles.ctaBtnText, Typography.headlineMd]}>Select Payment Method</Text>
+              <Text
+                style={[
+                  styles.ctaBtnText,
+                  Typography.headlineMd,
+                  { color: isDark ? colors.background : colors.white },
+                ]}
+              >
+                Select Payment Method
+              </Text>
             </TouchableOpacity>
           </View>
-        </>
+        </View>
       )}
 
       {/* STEP 2: PAYMENT METHOD */}
       {step === 'method' && (
         <>
-          <View style={styles.topBar}>
-            <TouchableOpacity style={styles.backBtn} onPress={() => setStep('amount')}>
-              <MaterialIcons name="arrow-back" size={22} color={Colors.text} />
+          <View style={[styles.topBar, { borderBottomColor: colors.outlineVariant }]}>
+            <TouchableOpacity
+              style={[styles.backBtn, { backgroundColor: colors.surfaceContainer }]}
+              onPress={() => setStep('amount')}
+              activeOpacity={0.7}
+            >
+              <MaterialIcons name="arrow-back" size={22} color={colors.text} />
             </TouchableOpacity>
-            <Text style={[styles.topBarTitle, Typography.headlineMd]}>Payment Method</Text>
+            <Text style={[styles.topBarTitle, Typography.headlineMd, { color: colors.text }]}>Payment Method</Text>
             <View style={{ width: 40 }} />
           </View>
 
           <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
             {/* Amount Summary */}
-            <View style={styles.summaryCard}>
-              <Text style={[styles.summaryLabel, Typography.labelCaps]}>Top-Up Amount</Text>
-              <Text style={[styles.summaryAmount, Typography.displayMetrics]}>
+            <View
+              style={[
+                styles.summaryCard,
+                {
+                  backgroundColor: isDark ? colors.surface : colors.cardBg,
+                  borderColor: isDark ? colors.outlineVariant : colors.cardBorder,
+                },
+              ]}
+            >
+              <Text style={[styles.summaryLabel, Typography.labelCaps, { color: colors.textSecondary }]}>
+                Top-Up Amount
+              </Text>
+              <Text style={[styles.summaryAmount, Typography.displayMetrics, { color: colors.primary }]}>
                 ₦{amount.toLocaleString()}
               </Text>
             </View>
 
             {fundingError ? (
-              <View style={{ backgroundColor: '#FEE2E2', borderColor: '#EF4444', borderWidth: 1, padding: 12, borderRadius: 8, marginBottom: 16 }}>
-                <Text style={{ color: '#991B1B', fontSize: 13, fontWeight: '500' }}>{fundingError}</Text>
+              <View
+                style={{
+                  backgroundColor: colors.errorBg,
+                  borderColor: colors.error,
+                  borderWidth: 1,
+                  padding: 12,
+                  borderRadius: 8,
+                  marginBottom: 16,
+                }}
+              >
+                <Text style={{ color: colors.error, fontSize: 13, fontWeight: '500' }}>{fundingError}</Text>
               </View>
             ) : null}
 
             {/* Method Selectors */}
-            <Text style={[styles.sectionTitle, Typography.labelCaps]}>Choose Payment Method (Powered by Paystack)</Text>
- 
+            <Text style={[styles.sectionTitle, Typography.labelCaps, { color: colors.outline }]}>
+              Choose Payment Method (Powered by Paystack)
+            </Text>
+
             {/* Option 1: Card */}
             <TouchableOpacity
-              style={[styles.methodCard, method === 'card' ? styles.methodCardActive : null]}
+              style={[
+                styles.methodCard,
+                { backgroundColor: colors.surface, borderColor: colors.outlineVariant },
+                method === 'card'
+                  ? {
+                      borderColor: isDark ? colors.secondary : colors.primary,
+                      backgroundColor: isDark ? colors.surfaceContainerHigh : colors.surfaceContainerLow,
+                    }
+                  : null,
+              ]}
               onPress={() => setMethod('card')}
+              activeOpacity={0.8}
             >
-              <View style={[styles.methodIcon, method === 'card' ? styles.methodIconActive : null]}>
-                <Ionicons name="card-outline" size={22} color={method === 'card' ? Colors.white : Colors.primary} />
+              <View
+                style={[
+                  styles.methodIcon,
+                  { backgroundColor: colors.surfaceContainerHigh },
+                  method === 'card' ? { backgroundColor: isDark ? colors.secondary : colors.primary } : null,
+                ]}
+              >
+                <Ionicons
+                  name="card-outline"
+                  size={22}
+                  color={
+                    method === 'card' ? (isDark ? colors.background : colors.white) : colors.primary
+                  }
+                />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={[styles.methodTitle, Typography.metricUnit]}>Debit / Credit Card</Text>
-                <Text style={[styles.methodSubtitle, Typography.bodyMd]}>Instant • Visa, Mastercard, Verve</Text>
+                <Text style={[styles.methodTitle, Typography.metricUnit, { color: colors.primary }]}>
+                  Debit / Credit Card
+                </Text>
+                <Text style={[styles.methodSubtitle, Typography.bodyMd, { color: colors.textSecondary }]}>
+                  Instant • Visa, Mastercard, Verve
+                </Text>
               </View>
               <Ionicons
                 name={method === 'card' ? 'radio-button-on' : 'radio-button-off'}
                 size={20}
-                color={method === 'card' ? Colors.secondaryDark : Colors.outline}
+                color={method === 'card' ? colors.secondaryDark : colors.outline}
               />
             </TouchableOpacity>
- 
+
             {/* Option 2: Bank Transfer */}
             <TouchableOpacity
-              style={[styles.methodCard, method === 'transfer' ? styles.methodCardActive : null]}
+              style={[
+                styles.methodCard,
+                { backgroundColor: colors.surface, borderColor: colors.outlineVariant },
+                method === 'transfer'
+                  ? {
+                      borderColor: isDark ? colors.secondary : colors.primary,
+                      backgroundColor: isDark ? colors.surfaceContainerHigh : colors.surfaceContainerLow,
+                    }
+                  : null,
+              ]}
               onPress={() => setMethod('transfer')}
+              activeOpacity={0.8}
             >
-              <View style={[styles.methodIcon, method === 'transfer' ? styles.methodIconActive : null]}>
-                <MaterialIcons name="account-balance" size={22} color={method === 'transfer' ? Colors.white : Colors.primary} />
+              <View
+                style={[
+                  styles.methodIcon,
+                  { backgroundColor: colors.surfaceContainerHigh },
+                  method === 'transfer' ? { backgroundColor: isDark ? colors.secondary : colors.primary } : null,
+                ]}
+              >
+                <MaterialIcons
+                  name="account-balance"
+                  size={22}
+                  color={
+                    method === 'transfer' ? (isDark ? colors.background : colors.white) : colors.primary
+                  }
+                />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={[styles.methodTitle, Typography.metricUnit]}>Bank Transfer</Text>
-                <Text style={[styles.methodSubtitle, Typography.bodyMd]}>Transfer to unique dedicated account</Text>
+                <Text style={[styles.methodTitle, Typography.metricUnit, { color: colors.primary }]}>
+                  Bank Transfer
+                </Text>
+                <Text style={[styles.methodSubtitle, Typography.bodyMd, { color: colors.textSecondary }]}>
+                  Direct transfer from your bank app
+                </Text>
               </View>
               <Ionicons
                 name={method === 'transfer' ? 'radio-button-on' : 'radio-button-off'}
                 size={20}
-                color={method === 'transfer' ? Colors.secondaryDark : Colors.outline}
+                color={method === 'transfer' ? colors.secondaryDark : colors.outline}
               />
             </TouchableOpacity>
- 
+
             {/* Option 3: USSD */}
             <TouchableOpacity
-              style={[styles.methodCard, method === 'ussd' ? styles.methodCardActive : null]}
+              style={[
+                styles.methodCard,
+                { backgroundColor: colors.surface, borderColor: colors.outlineVariant },
+                method === 'ussd'
+                  ? {
+                      borderColor: isDark ? colors.secondary : colors.primary,
+                      backgroundColor: isDark ? colors.surfaceContainerHigh : colors.surfaceContainerLow,
+                    }
+                  : null,
+              ]}
               onPress={() => setMethod('ussd')}
+              activeOpacity={0.8}
             >
-              <View style={[styles.methodIcon, method === 'ussd' ? styles.methodIconActive : null]}>
-                <MaterialIcons name="phone-android" size={22} color={method === 'ussd' ? Colors.white : Colors.primary} />
+              <View
+                style={[
+                  styles.methodIcon,
+                  { backgroundColor: colors.surfaceContainerHigh },
+                  method === 'ussd' ? { backgroundColor: isDark ? colors.secondary : colors.primary } : null,
+                ]}
+              >
+                <MaterialIcons
+                  name="phone-android"
+                  size={22}
+                  color={
+                    method === 'ussd' ? (isDark ? colors.background : colors.white) : colors.primary
+                  }
+                />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={[styles.methodTitle, Typography.metricUnit]}>USSD Code</Text>
-                <Text style={[styles.methodSubtitle, Typography.bodyMd]}>GTBank, Zenith, Access, FirstBank</Text>
+                <Text style={[styles.methodTitle, Typography.metricUnit, { color: colors.primary }]}>
+                  USSD Code
+                </Text>
+                <Text style={[styles.methodSubtitle, Typography.bodyMd, { color: colors.textSecondary }]}>
+                  GTBank, Zenith, Access, FirstBank
+                </Text>
               </View>
               <Ionicons
                 name={method === 'ussd' ? 'radio-button-on' : 'radio-button-off'}
                 size={20}
-                color={method === 'ussd' ? Colors.secondaryDark : Colors.outline}
+                color={method === 'ussd' ? colors.secondaryDark : colors.outline}
               />
             </TouchableOpacity>
- 
-            {/* Transfer details if Bank Transfer selected */}
-            {method === 'transfer' && (
-              <View style={styles.transferBox}>
-                <Text style={[styles.transferBoxTitle, Typography.labelCaps]}>Dedicated Account Details</Text>
-                <View style={styles.transferRow}>
-                  <Text style={[styles.transferLabel, Typography.bodyMd]}>Bank Name:</Text>
-                  <Text style={[styles.transferValue, Typography.metricUnit]}>Wema Bank / SmartPay</Text>
-                </View>
-                <View style={styles.transferRow}>
-                  <Text style={[styles.transferLabel, Typography.bodyMd]}>Account Number:</Text>
-                  <TouchableOpacity style={styles.copyRow} onPress={copyToClipboard}>
-                    <Text style={[styles.transferAccNum, Typography.metricUnit]}>{virtualAccountNumber}</Text>
-                    <MaterialIcons
-                      name={copiedAccount ? 'check' : 'content-copy'}
-                      size={18}
-                      color={copiedAccount ? Colors.secondaryDark : Colors.primary}
-                    />
-                  </TouchableOpacity>
-                </View>
-                {copiedAccount && (
-                  <Text style={[styles.copiedToast, Typography.labelCaps]}>Account number copied!</Text>
-                )}
-              </View>
-            )}
+
 
             {/* Paystack secure badge */}
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 32, gap: 6 }}>
-              <MaterialCommunityIcons name="shield-check" size={16} color={Colors.textSecondary} />
-              <Text style={{ fontSize: 11, color: Colors.textSecondary, textTransform: 'uppercase', letterSpacing: 1 }}>
+              <MaterialCommunityIcons name="shield-check" size={16} color={colors.textSecondary} />
+              <Text style={{ fontSize: 11, color: colors.textSecondary, textTransform: 'uppercase', letterSpacing: 1 }}>
                 Secured by Paystack
               </Text>
             </View>
           </ScrollView>
 
-          <View style={styles.stickyFooter}>
-            <TouchableOpacity style={styles.ctaBtn} onPress={handleConfirmFund}>
-              <MaterialIcons name="lock" size={18} color={Colors.white} />
-              <Text style={[styles.ctaBtnText, Typography.headlineMd]}>
+          <View style={[styles.stickyFooter, { backgroundColor: colors.background, borderTopColor: colors.outlineVariant }]}>
+            <TouchableOpacity
+              style={[styles.ctaBtn, { backgroundColor: isDark ? colors.secondary : colors.primary }]}
+              onPress={handleConfirmFund}
+              activeOpacity={0.85}
+            >
+              <MaterialIcons name="lock" size={18} color={isDark ? colors.background : colors.white} />
+              <Text
+                style={[
+                  styles.ctaBtnText,
+                  Typography.headlineMd,
+                  { color: isDark ? colors.background : colors.white },
+                ]}
+              >
                 Pay ₦{amount.toLocaleString()} Now
               </Text>
             </TouchableOpacity>
@@ -453,23 +560,33 @@ export default function FundWalletScreen() {
 
       {/* STEP 3: PROCESSING */}
       {step === 'processing' && (
-        <View style={styles.processingScreen}>
+        <View style={[styles.processingScreen, { backgroundColor: isDark ? colors.background : colors.primary }]}>
           <View style={styles.processingDecor1} />
           <View style={styles.processingDecor2} />
           <View style={styles.processingContent}>
             <View style={styles.processingSpinnerWrap}>
-              <View style={styles.processingSpinnerTrack} />
+              <ActivityIndicator size="large" color={colors.secondaryDark} style={{ position: 'absolute' }} />
               <View style={styles.processingInnerCircle}>
-                <MaterialIcons name="account-balance-wallet" size={28} color={Colors.secondaryDark} />
+                <MaterialIcons name="account-balance-wallet" size={24} color={colors.secondaryDark} />
               </View>
             </View>
-            <Text style={[styles.processingTitle, Typography.headlineMd]}>Authorizing Payment</Text>
-            <Text style={[styles.processingSubtitle, Typography.bodyMd]}>
+            <Text style={[styles.processingTitle, Typography.headlineMd, { color: isDark ? colors.text : '#ffffff' }]}>
+              Authorizing Payment
+            </Text>
+            <Text
+              style={[
+                styles.processingSubtitle,
+                Typography.bodyMd,
+                { color: isDark ? colors.textSecondary : 'rgba(255,255,255,0.7)' },
+              ]}
+            >
               Securely crediting ₦{amount.toLocaleString()} to your wallet balance...
             </Text>
             <View style={styles.secureTag}>
-              <MaterialIcons name="verified-user" size={14} color={Colors.secondary} />
-              <Text style={[styles.secureTagText, Typography.labelCaps]}>256-Bit Encrypted</Text>
+              <MaterialIcons name="verified-user" size={14} color={colors.secondary} />
+              <Text style={[styles.secureTagText, Typography.labelCaps, { color: isDark ? colors.text : '#ffffff' }]}>
+                256-Bit Encrypted
+              </Text>
             </View>
           </View>
         </View>
@@ -477,27 +594,33 @@ export default function FundWalletScreen() {
 
       {/* STEP 4: SUCCESS */}
       {step === 'success' && (
-        <View style={styles.successScreen}>
+        <View style={[styles.successScreen, { backgroundColor: colors.background }]}>
           <View style={styles.successContent}>
             <View style={styles.successIconCircle}>
-              <MaterialIcons name="check" size={48} color={Colors.white} />
+              <MaterialIcons name="check" size={48} color="#ffffff" />
             </View>
-            <Text style={[styles.successTitle, Typography.headlineLgMobile]}>Wallet Funded!</Text>
-            <Text style={[styles.successSubtitle, Typography.bodyMd]}>
+            <Text style={[styles.successTitle, Typography.headlineLgMobile, { color: colors.primary }]}>
+              Wallet Funded!
+            </Text>
+            <Text style={[styles.successSubtitle, Typography.bodyMd, { color: colors.textSecondary }]}>
               ₦{amount.toLocaleString()} has been added to your balance.
             </Text>
 
-            <View style={styles.successCard}>
+            <View style={[styles.successCard, { backgroundColor: colors.surface, borderColor: colors.outlineVariant }]}>
               <View style={styles.successCardRow}>
-                <Text style={[styles.successCardLabel, Typography.bodyMd]}>New Balance</Text>
-                <Text style={[styles.successCardValue, Typography.headlineMd]}>
+                <Text style={[styles.successCardLabel, Typography.bodyMd, { color: colors.textSecondary }]}>
+                  New Balance
+                </Text>
+                <Text style={[styles.successCardValue, Typography.headlineMd, { color: colors.secondaryDark }]}>
                   ₦{walletBalance.toLocaleString()}
                 </Text>
               </View>
-              <View style={styles.successCardDivider} />
+              <View style={[styles.successCardDivider, { backgroundColor: colors.outlineVariant }]} />
               <View style={styles.successCardRow}>
-                <Text style={[styles.successCardLabel, Typography.bodyMd]}>Transaction Ref</Text>
-                <Text style={[styles.successCardRef, Typography.metricUnit]}>
+                <Text style={[styles.successCardLabel, Typography.bodyMd, { color: colors.textSecondary }]}>
+                  Transaction Ref
+                </Text>
+                <Text style={[styles.successCardRef, Typography.metricUnit, { color: colors.primary }]}>
                   {fundingRef || `WF-${Date.now()}`}
                 </Text>
               </View>
@@ -505,18 +628,34 @@ export default function FundWalletScreen() {
 
             <View style={styles.actionButtons}>
               <TouchableOpacity
-                style={styles.primaryActionBtn}
+                style={[styles.primaryActionBtn, { backgroundColor: isDark ? colors.secondary : colors.secondaryDark }]}
                 onPress={() => router.replace('/buy-electricity')}
+                activeOpacity={0.85}
               >
-                <MaterialCommunityIcons name="lightning-bolt" size={20} color={Colors.white} />
-                <Text style={[styles.primaryActionText, Typography.headlineMd]}>Buy Electricity Now</Text>
+                <MaterialCommunityIcons
+                  name="lightning-bolt"
+                  size={20}
+                  color={isDark ? colors.background : '#ffffff'}
+                />
+                <Text
+                  style={[
+                    styles.primaryActionText,
+                    Typography.headlineMd,
+                    { color: isDark ? colors.background : '#ffffff' },
+                  ]}
+                >
+                  Buy Electricity Now
+                </Text>
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={styles.secondaryActionBtn}
+                style={[styles.secondaryActionBtn, { backgroundColor: colors.surfaceContainer }]}
                 onPress={() => router.replace('/(tabs)/home')}
+                activeOpacity={0.7}
               >
-                <Text style={[styles.secondaryActionText, Typography.headlineMd]}>Return to Home</Text>
+                <Text style={[styles.secondaryActionText, Typography.headlineMd, { color: colors.primary }]}>
+                  Return to Home
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -530,29 +669,42 @@ export default function FundWalletScreen() {
         presentationStyle="pageSheet"
         onRequestClose={handleClosePaystack}
       >
-        <SafeAreaView style={styles.paystackModalContainer}>
-          <View style={styles.paystackModalHeader}>
-            <TouchableOpacity onPress={handleClosePaystack} style={styles.paystackCloseBtn}>
-              <MaterialIcons name="close" size={22} color={Colors.text} />
+        <SafeAreaView style={[styles.paystackModalContainer, { backgroundColor: colors.background }]}>
+          <View
+            style={[
+              styles.paystackModalHeader,
+              { backgroundColor: colors.surface, borderBottomColor: colors.outlineVariant },
+            ]}
+          >
+            <TouchableOpacity
+              onPress={handleClosePaystack}
+              style={[styles.paystackCloseBtn, { backgroundColor: colors.surfaceContainer }]}
+              activeOpacity={0.7}
+            >
+              <MaterialIcons name="close" size={22} color={colors.text} />
             </TouchableOpacity>
             <View style={styles.paystackHeaderTitleWrap}>
-              <MaterialIcons name="lock" size={16} color={Colors.secondaryDark} />
-              <Text style={[styles.paystackHeaderTitle, Typography.headlineMd]}>Paystack Checkout</Text>
+              <MaterialIcons name="lock" size={16} color={colors.secondaryDark} />
+              <Text style={[styles.paystackHeaderTitle, Typography.headlineMd, { color: colors.text }]}>
+                Paystack Checkout
+              </Text>
             </View>
             <View style={{ width: 40 }} />
           </View>
 
           {isPaystackLoading && (
             <View style={styles.paystackLoadingWrap}>
-              <ActivityIndicator size="large" color={Colors.primary} />
-              <Text style={[styles.paystackLoadingText, Typography.bodyMd]}>Loading Paystack secure portal...</Text>
+              <ActivityIndicator size="large" color={colors.primary} />
+              <Text style={[styles.paystackLoadingText, Typography.bodyMd, { color: colors.textSecondary }]}>
+                Loading Paystack secure portal...
+              </Text>
             </View>
           )}
 
           {paystackUrl ? (
             <WebView
               source={{ uri: paystackUrl }}
-              style={styles.paystackWebView}
+              style={[styles.paystackWebView, { backgroundColor: colors.background }]}
               onLoadEnd={() => setIsPaystackLoading(false)}
               onNavigationStateChange={handlePaystackNavigationStateChange}
               onShouldStartLoadWithRequest={handleShouldStartLoadWithRequest}
@@ -568,7 +720,7 @@ export default function FundWalletScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
+  container: { flex: 1 },
   topBar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -576,56 +728,55 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.containerMargin,
     paddingVertical: Spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.outlineVariant,
   },
   backBtn: {
     width: 40,
     height: 40,
     borderRadius: Rounded.full,
-    backgroundColor: Colors.surfaceContainer,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  topBarTitle: { color: Colors.text },
+  topBarTitle: {},
   scrollContent: { padding: Spacing.containerMargin, paddingBottom: 120 },
   balanceCard: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.md,
-    backgroundColor: Colors.surface,
     borderRadius: Rounded.lg,
     padding: Spacing.md,
     borderWidth: 1,
-    borderColor: Colors.outlineVariant,
     marginBottom: Spacing.lg,
   },
   balanceCardIcon: {
     width: 44,
     height: 44,
     borderRadius: Rounded.full,
-    backgroundColor: Colors.surfaceContainerHigh,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  balanceCardLabel: { color: Colors.textSecondary },
-  balanceCardValue: { color: Colors.primary, marginTop: 2 },
+  balanceCardLabel: {},
+  balanceCardValue: { marginTop: 2 },
   amountSection: {
     alignItems: 'center',
     paddingVertical: Spacing.md,
     marginBottom: Spacing.md,
   },
-  amountLabel: { color: Colors.textSecondary, textTransform: 'uppercase', marginBottom: Spacing.sm },
+  amountLabel: { textTransform: 'uppercase', marginBottom: Spacing.sm },
   amountDisplay: { flexDirection: 'row', alignItems: 'baseline', gap: 4 },
-  currencySymbol: { fontSize: 28, color: Colors.textSecondary },
-  amountValue: { color: Colors.text, textAlign: 'center', minWidth: 80 },
+  currencySymbol: { fontSize: 28 },
+  amountValueInput: {
+    textAlign: 'center',
+    minWidth: 100,
+    padding: 0,
+    margin: 0,
+  },
   amountUnderline: {
     width: 80,
     height: 2,
-    backgroundColor: Colors.surfaceContainerHigh,
     borderRadius: 1,
     marginTop: Spacing.xs,
   },
-  minNotice: { color: Colors.error, marginTop: Spacing.xs },
+  minNotice: { marginTop: Spacing.xs },
   presetGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -635,19 +786,14 @@ const styles = StyleSheet.create({
   presetBtn: {
     width: '47%',
     height: 48,
-    backgroundColor: Colors.surface,
     borderRadius: Rounded.lg,
     borderWidth: 1,
-    borderColor: Colors.outlineVariant,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  presetBtnActive: {
-    backgroundColor: Colors.primary,
-    borderColor: Colors.primary,
-  },
-  presetBtnText: { color: Colors.text },
-  presetBtnTextActive: { color: Colors.white },
+  presetBtnActive: {},
+  presetBtnText: {},
+  presetBtnTextActive: {},
   keypad: { gap: Spacing.xs },
   keypadRow: {
     flexDirection: 'row',
@@ -662,88 +808,57 @@ const styles = StyleSheet.create({
     borderRadius: Rounded.full,
   },
   keypadKeyEmpty: { opacity: 0 },
-  keypadKeyText: { color: Colors.text },
+  keypadKeyText: {},
   stickyFooter: {
     padding: Spacing.containerMargin,
     borderTopWidth: 1,
-    borderTopColor: Colors.outlineVariant,
-    backgroundColor: Colors.background,
   },
   ctaBtn: {
     height: 52,
-    backgroundColor: Colors.primary,
     borderRadius: Rounded.full,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: Spacing.xs,
-    shadowColor: Colors.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.12,
     shadowRadius: 8,
     elevation: 4,
   },
   ctaBtnDisabled: { opacity: 0.4 },
-  ctaBtnText: { color: Colors.white },
+  ctaBtnText: {},
   summaryCard: {
-    backgroundColor: Colors.cardBg,
     borderRadius: Rounded.lg,
     padding: Spacing.md,
     borderWidth: 1,
-    borderColor: Colors.cardBorder,
     alignItems: 'center',
     marginBottom: Spacing.lg,
   },
-  summaryLabel: { color: Colors.textSecondary },
-  summaryAmount: { color: Colors.primary, marginTop: 4, fontSize: 32 },
-  sectionTitle: { color: Colors.outline, marginBottom: Spacing.sm, paddingLeft: 4 },
+  summaryLabel: {},
+  summaryAmount: { marginTop: 4, fontSize: 32 },
+  sectionTitle: { marginBottom: Spacing.sm, paddingLeft: 4 },
   methodCard: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.md,
-    backgroundColor: Colors.surface,
     borderRadius: Rounded.lg,
     padding: Spacing.md,
     borderWidth: 1,
-    borderColor: Colors.outlineVariant,
     marginBottom: Spacing.sm,
   },
-  methodCardActive: {
-    borderColor: Colors.primary,
-    backgroundColor: Colors.surfaceContainerLow,
-  },
+  methodCardActive: {},
   methodIcon: {
     width: 42,
     height: 42,
     borderRadius: Rounded.full,
-    backgroundColor: Colors.surfaceContainerHigh,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  methodIconActive: {
-    backgroundColor: Colors.primary,
-  },
-  methodTitle: { color: Colors.primary },
-  methodSubtitle: { color: Colors.textSecondary, fontSize: 12, marginTop: 2 },
-  transferBox: {
-    backgroundColor: Colors.surface,
-    borderRadius: Rounded.lg,
-    borderWidth: 1,
-    borderColor: Colors.secondaryDark,
-    padding: Spacing.md,
-    marginTop: Spacing.sm,
-    gap: Spacing.xs,
-  },
-  transferBoxTitle: { color: Colors.secondaryDark },
-  transferRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  transferLabel: { color: Colors.textSecondary, fontSize: 13 },
-  transferValue: { color: Colors.text, fontSize: 14 },
-  transferAccNum: { color: Colors.primary, fontSize: 15, fontWeight: '700' },
-  copyRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  copiedToast: { color: Colors.secondaryDark, fontSize: 11, marginTop: 4 },
+  methodIconActive: {},
+  methodTitle: {},
+  methodSubtitle: { fontSize: 12, marginTop: 2 },
   processingScreen: {
     flex: 1,
-    backgroundColor: Colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -754,7 +869,7 @@ const styles = StyleSheet.create({
     width: 200,
     height: 200,
     borderRadius: Rounded.full,
-    backgroundColor: Colors.secondary,
+    backgroundColor: '#84cc16',
     opacity: 0.1,
   },
   processingDecor2: {
@@ -764,7 +879,7 @@ const styles = StyleSheet.create({
     width: 200,
     height: 200,
     borderRadius: Rounded.full,
-    backgroundColor: Colors.secondary,
+    backgroundColor: '#84cc16',
     opacity: 0.1,
   },
   processingContent: { alignItems: 'center', gap: Spacing.md },
@@ -791,8 +906,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  processingTitle: { color: Colors.white },
-  processingSubtitle: { color: 'rgba(255,255,255,0.7)', textAlign: 'center', maxWidth: 280, fontSize: 14 },
+  processingTitle: {},
+  processingSubtitle: { textAlign: 'center', maxWidth: 280, fontSize: 14 },
   secureTag: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -803,10 +918,9 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.xs,
     marginTop: Spacing.lg,
   },
-  secureTagText: { color: Colors.white, textTransform: 'uppercase' },
+  secureTagText: { textTransform: 'uppercase' },
   successScreen: {
     flex: 1,
-    backgroundColor: Colors.background,
     justifyContent: 'center',
     padding: Spacing.containerMargin,
   },
@@ -815,54 +929,48 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: Rounded.full,
-    backgroundColor: Colors.secondaryDark,
+    backgroundColor: '#416900',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: Spacing.lg,
-    shadowColor: Colors.secondaryDark,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.25,
     shadowRadius: 10,
     elevation: 4,
   },
-  successTitle: { color: Colors.primary, marginBottom: Spacing.xs },
-  successSubtitle: { color: Colors.textSecondary, textAlign: 'center', marginBottom: Spacing.xl },
+  successTitle: { marginBottom: Spacing.xs },
+  successSubtitle: { textAlign: 'center', marginBottom: Spacing.xl },
   successCard: {
     width: '100%',
-    backgroundColor: Colors.surface,
     borderRadius: Rounded.lg,
     padding: Spacing.md,
     borderWidth: 1,
-    borderColor: Colors.outlineVariant,
     marginBottom: Spacing.xl,
   },
   successCardRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  successCardLabel: { color: Colors.textSecondary },
-  successCardValue: { color: Colors.secondaryDark },
-  successCardRef: { color: Colors.primary },
-  successCardDivider: { height: 1, backgroundColor: Colors.outlineVariant, marginVertical: Spacing.md },
+  successCardLabel: {},
+  successCardValue: {},
+  successCardRef: {},
+  successCardDivider: { height: 1, marginVertical: Spacing.md },
   actionButtons: { width: '100%', gap: Spacing.sm },
   primaryActionBtn: {
     height: 52,
-    backgroundColor: Colors.secondaryDark,
     borderRadius: Rounded.full,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: Spacing.xs,
   },
-  primaryActionText: { color: Colors.white },
+  primaryActionText: {},
   secondaryActionBtn: {
     height: 52,
-    backgroundColor: Colors.surfaceContainer,
     borderRadius: Rounded.full,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  secondaryActionText: { color: Colors.primary, fontSize: 16 },
+  secondaryActionText: { fontSize: 16 },
   paystackModalContainer: {
     flex: 1,
-    backgroundColor: Colors.background,
   },
   paystackModalHeader: {
     flexDirection: 'row',
@@ -871,14 +979,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.containerMargin,
     paddingVertical: Spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.outlineVariant,
-    backgroundColor: Colors.surface,
   },
   paystackCloseBtn: {
     width: 40,
     height: 40,
     borderRadius: Rounded.full,
-    backgroundColor: Colors.surfaceContainer,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -887,9 +992,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
   },
-  paystackHeaderTitle: {
-    color: Colors.text,
-  },
+  paystackHeaderTitle: {},
   paystackLoadingWrap: {
     position: 'absolute',
     top: 120,
@@ -900,11 +1003,8 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
     zIndex: 10,
   },
-  paystackLoadingText: {
-    color: Colors.textSecondary,
-  },
+  paystackLoadingText: {},
   paystackWebView: {
     flex: 1,
-    backgroundColor: Colors.background,
   },
 });

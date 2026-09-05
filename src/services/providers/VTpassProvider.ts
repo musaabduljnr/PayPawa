@@ -215,6 +215,9 @@ export class VTpassProvider implements ElectricityProvider {
 
     // If API keys are configured, make live HTTP call to VTpass
     if (hasKeys) {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 20000);
+
       try {
         const endpoint = `${this.baseUrl.replace(/\/$/, '')}/merchant-verify`;
         console.log(`[VTpass] Sending live verifyMeter request to ${endpoint} for ${sanitizedMeter} (${serviceID})`);
@@ -227,8 +230,10 @@ export class VTpassProvider implements ElectricityProvider {
             serviceID,
             type: request.meterType || 'prepaid',
           }),
+          signal: controller.signal,
         });
 
+        clearTimeout(timeoutId);
         const data = await response.json();
         console.log('[VTpass] verifyMeter response status:', data?.code, data?.response_description || data?.content);
 
@@ -275,6 +280,7 @@ export class VTpassProvider implements ElectricityProvider {
           rawResponse: data,
         };
       } catch (err: any) {
+        clearTimeout(timeoutId);
         console.error('[VTpass] Live verifyMeter HTTP call failed:', err);
         return {
           success: false,
@@ -283,8 +289,10 @@ export class VTpassProvider implements ElectricityProvider {
           customerName: '',
           address: '',
           meterType: request.meterType,
-          errorCode: 'NETWORK_ERROR',
-          errorMessage: `Network error reaching VTpass (${err?.message || 'Check connection or CORS'}).`,
+          errorCode: err.name === 'AbortError' ? 'TIMEOUT_ERROR' : 'NETWORK_ERROR',
+          errorMessage: err.name === 'AbortError'
+            ? 'Request timed out while connecting to VTpass.'
+            : `Network error reaching VTpass (${err?.message || 'Check connection or CORS'}).`,
         };
       }
     }
@@ -319,6 +327,9 @@ export class VTpassProvider implements ElectricityProvider {
 
     // If API keys are configured, make live HTTP call to VTpass
     if (hasKeys) {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 25000);
+
       try {
         const endpoint = `${this.baseUrl.replace(/\/$/, '')}/pay`;
         console.log(`[VTpass] Dispatching live vendToken to ${endpoint} for ${sanitizedMeter} (₦${amountNaira})`);
@@ -334,8 +345,10 @@ export class VTpassProvider implements ElectricityProvider {
             amount: amountNaira,
             phone: request.customerPhoneNumber || '08012345678',
           }),
+          signal: controller.signal,
         });
 
+        clearTimeout(timeoutId);
         const data = await response.json();
         console.log('[VTpass] vendToken response:', data?.code, data?.response_description);
 
@@ -347,19 +360,20 @@ export class VTpassProvider implements ElectricityProvider {
             data.content?.transactions?.token ||
             '';
           const token = this.formatTokenString(rawToken);
-          const unitsKwh = parseFloat(
+          const rawUnits =
             data.units ||
             data.PurchasedUnits ||
             data.content?.transactions?.units ||
-            (amountNaira / 235.3).toFixed(1)
-          );
+            data.Units ||
+            null;
+          const unitsKwh = rawUnits ? parseFloat(String(rawUnits)) : undefined;
 
           return {
             success: true,
             status: 'successful',
             token,
             unitsKwh,
-            tariffPerKwhKobo: 23530,
+            tariffPerKwhKobo: data.tariff ? Math.round(Number(data.tariff) * 100) : undefined,
             amountKobo: request.amountKobo,
             providerReference: data.exchangeReference || data.requestId || requestId,
             internalReference: requestId,
@@ -389,13 +403,18 @@ export class VTpassProvider implements ElectricityProvider {
           rawResponse: data,
         };
       } catch (err: any) {
-        console.error('[VTpass] Live vendToken HTTP call failed:', err);
+        clearTimeout(timeoutId);
+        console.error('[VTpass] Live vendToken HTTP call exception:', err);
+        // CRITICAL FINTECH SAFETY: Network timeout or connection drop must NEVER be treated as 'failed'
+        // Returning 'unknown' keeps transaction in-flight for reconciliation, preventing premature double-refunds
         return {
           success: false,
-          status: 'failed',
+          status: 'unknown',
           amountKobo: request.amountKobo,
           internalReference: requestId,
-          responseMessage: `Network error connecting to VTpass: ${err?.message || 'Check connection'}.`,
+          responseMessage: err.name === 'AbortError'
+            ? 'Gateway timeout waiting for utility response. Transaction is awaiting reconciliation.'
+            : `Network error connecting to VTpass: ${err?.message || 'Connection lost'}. Transaction awaiting reconciliation.`,
         };
       }
     }
@@ -413,6 +432,9 @@ export class VTpassProvider implements ElectricityProvider {
 
   async queryTransactionStatus(request: QueryTransactionRequest): Promise<QueryTransactionResponse> {
     if (this.apiKey && this.secretKey) {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000);
+
       try {
         const endpoint = `${this.baseUrl.replace(/\/$/, '')}/requery`;
         const response = await fetch(endpoint, {
@@ -421,8 +443,10 @@ export class VTpassProvider implements ElectricityProvider {
           body: JSON.stringify({
             request_id: request.internalReference,
           }),
+          signal: controller.signal,
         });
 
+        clearTimeout(timeoutId);
         const data = await response.json();
         const status = data.code === '000' ? 'successful' : data.code === '099' ? 'processing' : 'failed';
 
@@ -434,18 +458,28 @@ export class VTpassProvider implements ElectricityProvider {
           providerReference: data.requestId || request.providerReference,
           rawResponse: data,
         };
-      } catch (err) {
+      } catch (err: any) {
+        clearTimeout(timeoutId);
         console.warn('VTpass requery failed:', err);
+        return {
+          status: 'unknown',
+          providerReference: request.providerReference,
+          rawResponse: {
+            code: 'TIMEOUT',
+            status: 'unknown',
+            error: err?.message,
+          },
+        };
       }
     }
 
     return {
-      status: 'successful',
+      status: 'unknown',
       providerReference: request.providerReference,
       rawResponse: {
-        code: '000',
-        status: 'delivered',
-        requestId: request.internalReference,
+        code: 'UNCONFIGURED',
+        status: 'unknown',
+        message: 'VTpass provider credentials not present for requery.',
       },
     };
   }

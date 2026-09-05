@@ -6,7 +6,6 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
-  Alert,
 } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -14,6 +13,7 @@ import { MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
 import { Spacing, Rounded, Typography } from '@/constants/theme';
 import { useTheme } from '@/context/ThemeContext';
 import { useApp } from '@/context/AppContext';
+import { CustomAlert } from '@/context/AlertContext';
 import type { AccountTypeEnum, ApplianceItemInput, UsageFrequencyEnum } from '@/types/auth';
 import { EnergyService, AuthService } from '@/services';
 
@@ -43,18 +43,18 @@ const AVAILABLE_APPLIANCES: ApplianceConfig[] = [
 
 export default function EnergySetupScreen() {
   const { colors, isDark } = useTheme();
-  const { completeOnboarding, userProfile, user, refreshProfile } = useApp();
+  const { completeOnboarding, userProfile, user, energyProfile, refreshProfile } = useApp();
 
   const [currentStep, setCurrentStep] = useState(1);
   const totalSteps = 4;
   const [submitting, setSubmitting] = useState(false);
 
   // Step 1 State: Property & Occupants Profile
-  const [accountType, setAccountType] = useState<AccountTypeEnum>(userProfile?.account_type || 'household');
-  const [occupantsCount, setOccupantsCount] = useState(3);
-  const [buildingType, setBuildingType] = useState('flat');
-  const [hasSolar, setHasSolar] = useState(false);
-  const [hasGenerator, setHasGenerator] = useState(true);
+  const [accountType, setAccountType] = useState<AccountTypeEnum>(energyProfile?.account_type || userProfile?.account_type || 'household');
+  const [occupantsCount, setOccupantsCount] = useState(energyProfile?.occupants_count || 3);
+  const [buildingType, setBuildingType] = useState(energyProfile?.building_type || 'flat');
+  const [hasSolar, setHasSolar] = useState(energyProfile?.has_solar ?? false);
+  const [hasGenerator, setHasGenerator] = useState(energyProfile?.has_generator ?? true);
 
   // Step 2 & 3 State: Selected Appliances
   const [selectedAppliances, setSelectedAppliances] = useState<Record<string, { quantity: number; frequency: UsageFrequencyEnum }>>({
@@ -146,9 +146,12 @@ export default function EnergySetupScreen() {
       if (success) {
         router.replace('/(tabs)/home');
       } else {
-        Alert.alert('Notice', 'Could not save profile right now. You can update it anytime from the Profile tab.', [
-          { text: 'Go to Home', onPress: () => router.replace('/(tabs)/home') },
-        ]);
+        CustomAlert.alert(
+          'Notice',
+          'Could not save profile right now. You can update it anytime from the Profile tab.',
+          [{ text: 'Go to Dashboard', style: 'default', onPress: () => router.replace('/(tabs)/home') }],
+          { type: 'info' }
+        );
       }
     } catch (e: any) {
       router.replace('/(tabs)/home');
@@ -167,13 +170,14 @@ export default function EnergySetupScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-      {/* Header */}
+      {/* Header with Progress */}
       <View style={styles.header}>
         {currentStep > 1 ? (
           <TouchableOpacity
-            style={[styles.backBtn, { backgroundColor: colors.surfaceContainerLow, borderColor: colors.outlineVariant }]}
+            style={[styles.backBtn, { backgroundColor: isDark ? colors.surfaceContainerLow : colors.surface, borderColor: colors.outlineVariant }]}
             onPress={() => setCurrentStep((prev) => prev - 1)}
             disabled={submitting}
+            activeOpacity={0.7}
           >
             <MaterialIcons name="chevron-left" size={24} color={colors.text} />
           </TouchableOpacity>
@@ -185,7 +189,7 @@ export default function EnergySetupScreen() {
           <Text style={[styles.stepIndicatorText, Typography.labelCaps, { color: colors.secondary }]}>
             STEP {currentStep} OF {totalSteps}
           </Text>
-          <View style={styles.progressBarBg}>
+          <View style={[styles.progressBarBg, { backgroundColor: isDark ? colors.surfaceContainerHigh : colors.surfaceContainer }]}>
             <View
               style={[
                 styles.progressBarFill,
@@ -195,7 +199,7 @@ export default function EnergySetupScreen() {
           </View>
         </View>
 
-        <TouchableOpacity onPress={handleSkip} style={styles.skipBtn} disabled={submitting}>
+        <TouchableOpacity onPress={handleSkip} style={styles.skipBtn} disabled={submitting} activeOpacity={0.7}>
           <Text style={[styles.skipText, Typography.metricUnit, { color: colors.outline }]}>
             Skip
           </Text>
@@ -208,14 +212,14 @@ export default function EnergySetupScreen() {
           <View style={styles.stepContainer}>
             <View style={styles.stepTitleBox}>
               <Text style={[styles.stepTitle, Typography.headlineLg, { color: colors.text }]}>
-                Tell us about your space 🏠
+                Tell us about your property
               </Text>
               <Text style={[styles.stepSubtitle, Typography.bodyMd, { color: colors.textSecondary }]}>
-                This helps us calibrate accurate baseline consumption for your property.
+                This helps PayPawa personalize your energy estimates and usage tracking.
               </Text>
             </View>
 
-            {/* Account Type Selector */}
+            {/* Property Type Selector */}
             <View style={styles.cardSection}>
               <Text style={[styles.cardLabel, Typography.labelCaps, { color: colors.outline }]}>Property Type</Text>
               <View style={styles.accountTypeRow}>
@@ -223,9 +227,10 @@ export default function EnergySetupScreen() {
                   style={[
                     styles.accountTypeBtn,
                     { backgroundColor: isDark ? colors.surfaceContainerLow : colors.surface, borderColor: colors.outlineVariant },
-                    accountType === 'household' && [styles.accountTypeBtnActive, { borderColor: colors.secondary, backgroundColor: 'rgba(132, 204, 22, 0.1)' }],
+                    accountType === 'household' && [styles.accountTypeBtnActive, { borderColor: colors.secondary, backgroundColor: isDark ? 'rgba(132, 204, 22, 0.1)' : 'rgba(132, 204, 22, 0.08)' }],
                   ]}
                   onPress={() => setAccountType('household')}
+                  activeOpacity={0.7}
                 >
                   <MaterialCommunityIcons
                     name="home-outline"
@@ -236,7 +241,7 @@ export default function EnergySetupScreen() {
                     style={[
                       styles.accountTypeText,
                       Typography.metricUnit,
-                      { color: accountType === 'household' ? colors.secondary : colors.text },
+                      { color: accountType === 'household' ? colors.primary : colors.text },
                     ]}
                   >
                     Household
@@ -247,9 +252,10 @@ export default function EnergySetupScreen() {
                   style={[
                     styles.accountTypeBtn,
                     { backgroundColor: isDark ? colors.surfaceContainerLow : colors.surface, borderColor: colors.outlineVariant },
-                    accountType === 'business' && [styles.accountTypeBtnActive, { borderColor: colors.secondary, backgroundColor: 'rgba(132, 204, 22, 0.1)' }],
+                    accountType === 'business' && [styles.accountTypeBtnActive, { borderColor: colors.secondary, backgroundColor: isDark ? 'rgba(132, 204, 22, 0.1)' : 'rgba(132, 204, 22, 0.08)' }],
                   ]}
                   onPress={() => setAccountType('business')}
+                  activeOpacity={0.7}
                 >
                   <MaterialCommunityIcons
                     name="domain"
@@ -260,7 +266,7 @@ export default function EnergySetupScreen() {
                     style={[
                       styles.accountTypeText,
                       Typography.metricUnit,
-                      { color: accountType === 'business' ? colors.secondary : colors.text },
+                      { color: accountType === 'business' ? colors.primary : colors.text },
                     ]}
                   >
                     Business / Office
@@ -270,34 +276,34 @@ export default function EnergySetupScreen() {
             </View>
 
             {/* Occupants Count */}
-            <View style={[styles.cardSection, { backgroundColor: isDark ? colors.surfaceContainerLow : colors.surface, borderColor: colors.outlineVariant }]}>
-              <View style={styles.counterRow}>
-                <View>
-                  <Text style={[styles.counterTitle, Typography.headlineMd, { fontSize: 16, color: colors.text }]}>
-                    {accountType === 'household' ? 'Number of Occupants' : 'Staff / Workers'}
-                  </Text>
-                  <Text style={[styles.counterSubtitle, Typography.metricUnit, { color: colors.outline }]}>
-                    People living or working here
-                  </Text>
-                </View>
+            <View style={[styles.counterContainer, { backgroundColor: isDark ? colors.surfaceContainerLow : colors.surface, borderColor: colors.outlineVariant }]}>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.counterTitle, Typography.headlineMd, { fontSize: 16, color: colors.text }]}>
+                  {accountType === 'household' ? 'Number of Occupants' : 'Staff / Workers'}
+                </Text>
+                <Text style={[styles.counterSubtitle, Typography.bodyMd, { color: colors.textSecondary, fontSize: 13 }]}>
+                  People living or working on the property
+                </Text>
+              </View>
 
-                <View style={styles.counterControls}>
-                  <TouchableOpacity
-                    style={[styles.counterBtn, { backgroundColor: colors.surfaceContainerHigh, borderColor: colors.outlineVariant }]}
-                    onPress={() => setOccupantsCount((prev) => Math.max(1, prev - 1))}
-                  >
-                    <MaterialIcons name="remove" size={20} color={colors.text} />
-                  </TouchableOpacity>
-                  <Text style={[styles.counterValue, Typography.headlineMd, { color: colors.text }]}>
-                    {occupantsCount}
-                  </Text>
-                  <TouchableOpacity
-                    style={[styles.counterBtn, { backgroundColor: colors.surfaceContainerHigh, borderColor: colors.outlineVariant }]}
-                    onPress={() => setOccupantsCount((prev) => prev + 1)}
-                  >
-                    <MaterialIcons name="add" size={20} color={colors.text} />
-                  </TouchableOpacity>
-                </View>
+              <View style={styles.counterControls}>
+                <TouchableOpacity
+                  style={[styles.counterBtn, { backgroundColor: colors.surfaceContainerHigh, borderColor: colors.outlineVariant }]}
+                  onPress={() => setOccupantsCount((prev) => Math.max(1, prev - 1))}
+                  activeOpacity={0.7}
+                >
+                  <MaterialIcons name="remove" size={20} color={colors.text} />
+                </TouchableOpacity>
+                <Text style={[styles.counterValue, Typography.headlineMd, { color: colors.text }]}>
+                  {occupantsCount}
+                </Text>
+                <TouchableOpacity
+                  style={[styles.counterBtn, { backgroundColor: colors.surfaceContainerHigh, borderColor: colors.outlineVariant }]}
+                  onPress={() => setOccupantsCount((prev) => prev + 1)}
+                  activeOpacity={0.7}
+                >
+                  <MaterialIcons name="add" size={20} color={colors.text} />
+                </TouchableOpacity>
               </View>
             </View>
 
@@ -316,15 +322,16 @@ export default function EnergySetupScreen() {
                     style={[
                       styles.pillBtn,
                       { backgroundColor: isDark ? colors.surfaceContainerLow : colors.surface, borderColor: colors.outlineVariant },
-                      buildingType === b.key && [styles.pillBtnActive, { borderColor: colors.secondary, backgroundColor: 'rgba(132, 204, 22, 0.1)' }],
+                      buildingType === b.key && [styles.pillBtnActive, { borderColor: colors.secondary, backgroundColor: isDark ? 'rgba(132, 204, 22, 0.1)' : 'rgba(132, 204, 22, 0.08)' }],
                     ]}
                     onPress={() => setBuildingType(b.key)}
+                    activeOpacity={0.7}
                   >
                     <Text
                       style={[
                         styles.pillText,
                         Typography.metricUnit,
-                        { color: buildingType === b.key ? colors.secondary : colors.text },
+                        { color: buildingType === b.key ? colors.primary : colors.text, fontWeight: buildingType === b.key ? '700' : '500' },
                       ]}
                     >
                       {b.label}
@@ -346,7 +353,7 @@ export default function EnergySetupScreen() {
                   <MaterialCommunityIcons name="solar-power-variant-outline" size={24} color={hasSolar ? colors.secondary : colors.outline} />
                   <View style={{ flex: 1 }}>
                     <Text style={[styles.toggleText, Typography.metricUnit, { color: colors.text }]}>Solar / Inverter System</Text>
-                    <Text style={[styles.toggleSubtext, Typography.labelCaps, { color: colors.outline }]}>Has battery backup</Text>
+                    <Text style={[styles.toggleSubtext, Typography.labelCaps, { color: colors.outline }]}>Battery backup storage</Text>
                   </View>
                   <MaterialIcons
                     name={hasSolar ? 'check-box' : 'check-box-outline-blank'}
@@ -383,10 +390,10 @@ export default function EnergySetupScreen() {
           <View style={styles.stepContainer}>
             <View style={styles.stepTitleBox}>
               <Text style={[styles.stepTitle, Typography.headlineLg, { color: colors.text }]}>
-                Everyday Appliances 💡
+                Everyday appliances
               </Text>
               <Text style={[styles.stepSubtitle, Typography.bodyMd, { color: colors.textSecondary }]}>
-                Select the regular lighting and cooling appliances used in your home.
+                Select the regular lighting and cooling appliances used in your space.
               </Text>
             </View>
 
@@ -436,11 +443,12 @@ export default function EnergySetupScreen() {
                       <View style={[styles.applianceControls, { borderTopColor: colors.outlineVariant }]}>
                         {/* Quantity Row */}
                         <View style={styles.applianceQtyRow}>
-                          <Text style={[styles.controlLabel, Typography.labelCaps, { color: colors.outline }]}>Quantity:</Text>
+                          <Text style={[styles.controlLabel, Typography.labelCaps, { color: colors.outline }]}>Quantity</Text>
                           <View style={styles.miniCounter}>
                             <TouchableOpacity
                               style={[styles.miniCounterBtn, { backgroundColor: colors.surfaceContainerHigh }]}
                               onPress={() => updateQuantity(app.type, -1)}
+                              activeOpacity={0.7}
                             >
                               <MaterialIcons name="remove" size={16} color={colors.text} />
                             </TouchableOpacity>
@@ -450,6 +458,7 @@ export default function EnergySetupScreen() {
                             <TouchableOpacity
                               style={[styles.miniCounterBtn, { backgroundColor: colors.surfaceContainerHigh }]}
                               onPress={() => updateQuantity(app.type, 1)}
+                              activeOpacity={0.7}
                             >
                               <MaterialIcons name="add" size={16} color={colors.text} />
                             </TouchableOpacity>
@@ -467,6 +476,7 @@ export default function EnergySetupScreen() {
                                 config.frequency === f && [styles.freqPillActive, { backgroundColor: colors.secondary }],
                               ]}
                               onPress={() => updateFrequency(app.type, f)}
+                              activeOpacity={0.7}
                             >
                               <Text
                                 style={[
@@ -494,10 +504,10 @@ export default function EnergySetupScreen() {
           <View style={styles.stepContainer}>
             <View style={styles.stepTitleBox}>
               <Text style={[styles.stepTitle, Typography.headlineLg, { color: colors.text }]}>
-                Heavy Loads & Kitchen ⚡
+                Heavy appliances & cooking
               </Text>
               <Text style={[styles.stepSubtitle, Typography.bodyMd, { color: colors.textSecondary }]}>
-                Heavy appliances account for over 70% of typical electricity token consumption.
+                Heavy appliances like heaters, ACs, and pumps account for most electricity consumption.
               </Text>
             </View>
 
@@ -547,11 +557,12 @@ export default function EnergySetupScreen() {
                       <View style={[styles.applianceControls, { borderTopColor: colors.outlineVariant }]}>
                         {/* Quantity Row */}
                         <View style={styles.applianceQtyRow}>
-                          <Text style={[styles.controlLabel, Typography.labelCaps, { color: colors.outline }]}>Quantity:</Text>
+                          <Text style={[styles.controlLabel, Typography.labelCaps, { color: colors.outline }]}>Quantity</Text>
                           <View style={styles.miniCounter}>
                             <TouchableOpacity
                               style={[styles.miniCounterBtn, { backgroundColor: colors.surfaceContainerHigh }]}
                               onPress={() => updateQuantity(app.type, -1)}
+                              activeOpacity={0.7}
                             >
                               <MaterialIcons name="remove" size={16} color={colors.text} />
                             </TouchableOpacity>
@@ -561,6 +572,7 @@ export default function EnergySetupScreen() {
                             <TouchableOpacity
                               style={[styles.miniCounterBtn, { backgroundColor: colors.surfaceContainerHigh }]}
                               onPress={() => updateQuantity(app.type, 1)}
+                              activeOpacity={0.7}
                             >
                               <MaterialIcons name="add" size={16} color={colors.text} />
                             </TouchableOpacity>
@@ -578,6 +590,7 @@ export default function EnergySetupScreen() {
                                 config.frequency === f && [styles.freqPillActive, { backgroundColor: colors.secondary }],
                               ]}
                               onPress={() => updateFrequency(app.type, f)}
+                              activeOpacity={0.7}
                             >
                               <Text
                                 style={[
@@ -605,10 +618,10 @@ export default function EnergySetupScreen() {
           <View style={styles.stepContainer}>
             <View style={styles.stepTitleBox}>
               <Text style={[styles.stepTitle, Typography.headlineLg, { color: colors.text }]}>
-                Baseline Energy Summary 📊
+                You're all set
               </Text>
               <Text style={[styles.stepSubtitle, Typography.bodyMd, { color: colors.textSecondary }]}>
-                Here is your preliminary daily consumption profile based on your appliances.
+                Here is your preliminary daily consumption baseline calculated from your appliances.
               </Text>
             </View>
 
@@ -660,11 +673,11 @@ export default function EnergySetupScreen() {
               </View>
             </View>
 
-            {/* Mandatory Regulatory Estimation Disclaimer */}
+            {/* Regulatory Estimation Disclaimer */}
             <View style={[styles.disclaimerBox, { backgroundColor: isDark ? 'rgba(132, 204, 22, 0.08)' : 'rgba(132, 204, 22, 0.15)', borderColor: colors.secondary }]}>
               <MaterialIcons name="info-outline" size={22} color={colors.secondary} />
               <Text style={[styles.disclaimerText, Typography.metricUnit, { color: colors.textSecondary, flex: 1 }]}>
-                Your appliance profile suggests your key energy loads. These values are <Text style={{ fontWeight: '700', color: colors.text }}>estimates only</Text> and help you plan your monthly electricity purchases.
+                Your appliance profile estimates your baseline energy loads. These values are <Text style={{ fontWeight: '700', color: colors.text }}>estimates only</Text> to help you plan your monthly electricity purchases.
               </Text>
             </View>
           </View>
@@ -692,11 +705,11 @@ export default function EnergySetupScreen() {
             activeOpacity={0.85}
           >
             {submitting ? (
-              <ActivityIndicator color={colors.white} />
+              <ActivityIndicator color={isDark ? colors.background : colors.white} />
             ) : (
               <>
                 <Text style={[styles.primaryBtnText, Typography.headlineMd, { color: isDark ? colors.background : colors.white, fontSize: 16 }]}>
-                  Finish & Go to Dashboard
+                  Go to Dashboard
                 </Text>
                 <MaterialIcons name="check" size={20} color={isDark ? colors.background : colors.white} />
               </>
@@ -738,7 +751,6 @@ const styles = StyleSheet.create({
   progressBarBg: {
     width: 120,
     height: 4,
-    backgroundColor: '#E5E7EB',
     borderRadius: 2,
     overflow: 'hidden',
   },
@@ -781,12 +793,13 @@ const styles = StyleSheet.create({
   },
   accountTypeBtn: {
     flex: 1,
-    paddingVertical: Spacing.lg,
+    paddingVertical: Spacing.md,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: Rounded.lg,
     borderWidth: 1,
     gap: Spacing.xs,
+    minHeight: 80,
   },
   accountTypeBtnActive: {
     borderWidth: 2,
@@ -794,17 +807,17 @@ const styles = StyleSheet.create({
   accountTypeText: {
     fontWeight: '700',
   },
-  counterRow: {
+  counterContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: Spacing.md,
     borderRadius: Rounded.lg,
     borderWidth: 1,
+    gap: Spacing.sm,
   },
   counterTitle: {},
   counterSubtitle: {
-    fontSize: 12,
     marginTop: 2,
   },
   counterControls: {
@@ -813,8 +826,8 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   counterBtn: {
-    width: 36,
-    height: 36,
+    width: 44,
+    height: 44,
     borderRadius: Rounded.md,
     borderWidth: 1,
     alignItems: 'center',
@@ -840,7 +853,6 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
   },
   pillText: {
-    fontWeight: '600',
     fontSize: 13,
   },
   togglesCard: {
@@ -853,6 +865,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: Spacing.md,
     padding: Spacing.md,
+    minHeight: 56,
   },
   toggleText: {
     fontWeight: '600',
@@ -880,6 +893,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: Spacing.md,
     gap: Spacing.sm,
+    minHeight: 64,
   },
   applianceIconWrap: {
     width: 40,
@@ -914,14 +928,14 @@ const styles = StyleSheet.create({
     gap: Spacing.xs,
   },
   miniCounterBtn: {
-    width: 28,
-    height: 28,
+    width: 36,
+    height: 36,
     borderRadius: Rounded.sm,
     alignItems: 'center',
     justifyContent: 'center',
   },
   miniCounterValue: {
-    minWidth: 24,
+    minWidth: 28,
     textAlign: 'center',
     fontWeight: '700',
   },
@@ -931,13 +945,13 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   freqPill: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
     borderRadius: Rounded.full,
   },
   freqPillActive: {},
   freqText: {
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: '700',
     textTransform: 'capitalize',
   },
@@ -947,10 +961,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: Spacing.xs,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.2,
-    shadowRadius: 10,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 3,
   },
   summaryCardSubtitle: {
     letterSpacing: 1.5,
@@ -1009,10 +1023,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: Spacing.xs,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 2,
   },
   primaryBtnText: {
     fontWeight: '700',

@@ -32,6 +32,9 @@ export interface VerifyMeterResponse {
   address: string;
   meterType: MeterType;
   tariffCode?: string;
+  minimumVendNaira?: number;
+  outstandingDebtNaira?: number;
+  providerSessionRef?: string;
   errorCode?: string;
   errorMessage?: string;
   rawResponse?: Record<string, any>;
@@ -46,6 +49,7 @@ export interface VendTokenRequest {
   customerEmail?: string;
   idempotencyKey: string;
   internalReference: string;
+  lookupReference?: string;
 }
 
 export type VendingStatus = 'successful' | 'processing' | 'pending' | 'failed' | 'timeout' | 'unknown';
@@ -59,6 +63,10 @@ export interface VendTokenResponse {
   amountKobo: number;              // Total amount paid
   providerReference?: string;      // External provider transaction ID
   internalReference: string;       // App internal reference ID
+  vatNaira?: number;
+  receiptNumber?: string;
+  tariffClass?: string;
+  outstandingDebtNaira?: number;
   responseMessage?: string;
   rawResponse?: Record<string, any>;
 }

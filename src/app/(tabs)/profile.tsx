@@ -6,7 +6,6 @@ import {
   ScrollView,
   TouchableOpacity,
   Switch,
-  Alert,
   Modal,
   TextInput,
   KeyboardAvoidingView,
@@ -19,6 +18,8 @@ import { MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Spacing, Rounded, Typography } from '@/constants/theme';
 import { useApp } from '@/context/AppContext';
 import { useTheme } from '@/context/ThemeContext';
+import { CustomAlert } from '@/context/AlertContext';
+import { AuthService } from '@/services/auth.service';
 import type { AccountTypeEnum } from '@/types/auth';
 
 export default function ProfileScreen() {
@@ -37,12 +38,10 @@ export default function ProfileScreen() {
     activeMeterId,
     activeMeter,
     updateProfile,
+    notificationPreferences,
+    updateNotificationPreferences,
   } = useApp();
   const { isDark, toggleTheme, colors } = useTheme();
-
-  const [paymentNotifs, setPaymentNotifs] = useState(true);
-  const [lowBalanceAlert, setLowBalanceAlert] = useState(true);
-  const [highUsageWarning, setHighUsageWarning] = useState(false);
 
   // Edit Profile Modal State
   const [editModalVisible, setEditModalVisible] = useState(false);
@@ -51,6 +50,14 @@ export default function ProfileScreen() {
   const [editAccountType, setEditAccountType] = useState<AccountTypeEnum>(accountType || 'household');
   const [savingProfile, setSavingProfile] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+  // App-Store Compliance & Support Modals State
+  const [supportModalVisible, setSupportModalVisible] = useState(false);
+  const [legalModalVisible, setLegalModalVisible] = useState(false);
+  const [legalModalType, setLegalModalType] = useState<'terms' | 'privacy'>('terms');
+  const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [deletingAccount, setDeletingAccount] = useState(false);
 
   const active = activeMeter || meters.find((m) => m.id === activeMeterId) || meters[0];
   const displayName = userProfile?.full_name || active?.customerName || userName;
@@ -71,7 +78,7 @@ export default function ProfileScreen() {
 
   const handleSaveProfile = async () => {
     if (!editName.trim()) {
-      Alert.alert('Validation Error', 'Full Name cannot be empty');
+      CustomAlert.alert('Validation Error', 'Full Name cannot be empty', [{ text: 'OK', style: 'default' }], { type: 'error' });
       return;
     }
 
@@ -87,7 +94,7 @@ export default function ProfileScreen() {
       if (res.success) {
         setEditModalVisible(false);
       } else {
-        Alert.alert('Save Failed', res.error || 'Failed to update profile.');
+        CustomAlert.alert('Save Failed', res.error || 'Failed to update profile.', [{ text: 'OK', style: 'default' }], { type: 'error' });
       }
     } finally {
       setSavingProfile(false);
@@ -108,33 +115,62 @@ export default function ProfileScreen() {
   };
 
   const handleLogout = () => {
-    if (Platform.OS === 'web') {
-      if (typeof window !== 'undefined') {
-        const confirmed = window.confirm('Are you sure you want to sign out?');
-        if (confirmed) {
-          executeLogout();
-        }
-      } else {
-        executeLogout();
-      }
-    } else {
-      Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
+    CustomAlert.alert(
+      'Sign Out',
+      'Are you sure you want to sign out of your account?',
+      [
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Sign Out',
           style: 'destructive',
           onPress: executeLogout,
         },
-      ]);
+      ],
+      { type: 'confirm' }
+    );
+  };
+
+  const handleDeleteAccount = async () => {
+    if (deleteConfirmText.trim().toUpperCase() !== 'DELETE') {
+      CustomAlert.alert(
+        'Confirmation Required',
+        'Please type DELETE in the box below to authorize permanent account closure.',
+        [{ text: 'OK', style: 'default' }],
+        { type: 'error' }
+      );
+      return;
+    }
+
+    if (!userProfile?.id) return;
+    setDeletingAccount(true);
+    try {
+      const res = await AuthService.requestAccountDeletion(userProfile.id, 'User requested in-app account deletion');
+      if (res.success) {
+        setDeleteModalVisible(false);
+        CustomAlert.alert(
+          'Account Closed',
+          'Your account closure request has been submitted and your session has ended.',
+          [{ text: 'OK', style: 'default', onPress: () => router.replace('/onboarding') }],
+          { type: 'success' }
+        );
+      } else {
+        CustomAlert.alert('Request Failed', res.error || 'Unable to process account deletion.', [{ text: 'OK', style: 'default' }], { type: 'error' });
+      }
+    } finally {
+      setDeletingAccount(false);
     }
   };
 
-
   const handleDeleteMeter = (id: string, name: string) => {
-    Alert.alert('Remove Meter', `Remove "${name}" from your account?`, [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Remove', style: 'destructive', onPress: () => deleteMeter(id) },
-    ]);
+    CustomAlert.alert(
+      'Remove Meter',
+      `Remove "${name}" from your account? This action cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Remove', style: 'destructive', onPress: () => deleteMeter(id) },
+      ],
+      { type: 'confirm' }
+    );
   };
 
   const ToggleRow = ({
@@ -172,13 +208,22 @@ export default function ProfileScreen() {
 
         {/* Profile Hero */}
         <View style={[styles.profileHero, { borderBottomColor: colors.outlineVariant }]}>
-          <View style={[styles.avatarCircle, { backgroundColor: colors.primary, borderColor: colors.surface }]}>
+          <TouchableOpacity
+            style={[styles.avatarCircle, { backgroundColor: colors.primary, borderColor: colors.surface }]}
+            onPress={() => router.push('/personal-info')}
+            activeOpacity={0.8}
+          >
             <Text style={[styles.avatarText, Typography.headlineLg, { color: isDark ? colors.background : colors.white }]}>
               {initials}
             </Text>
-          </View>
-          <Text style={[styles.profileName, Typography.headlineMd, { color: colors.primary }]}>{displayName}</Text>
-          <Text style={[styles.profileEmail, Typography.bodyMd, { color: colors.textSecondary }]}>{displayEmail}</Text>
+            <View style={[styles.avatarEditBadge, { backgroundColor: colors.secondary }]}>
+              <MaterialIcons name="edit" size={12} color={colors.primary} />
+            </View>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => router.push('/personal-info')} activeOpacity={0.8} style={{ alignItems: 'center' }}>
+            <Text style={[styles.profileName, Typography.headlineMd, { color: colors.primary }]}>{displayName}</Text>
+            <Text style={[styles.profileEmail, Typography.bodyMd, { color: colors.textSecondary }]}>{displayEmail}</Text>
+          </TouchableOpacity>
           <View style={styles.heroBadgeRow}>
             <View style={[styles.accountTypeBadge, { backgroundColor: 'rgba(132,204,22,0.15)' }]}>
               <MaterialCommunityIcons
@@ -343,7 +388,7 @@ export default function ProfileScreen() {
         <View style={styles.section}>
           <Text style={[styles.sectionLabel, Typography.labelCaps, { color: colors.outline }]}>Account</Text>
           <View style={[styles.listCard, { backgroundColor: colors.surface, borderColor: colors.outlineVariant }]}>
-            <TouchableOpacity style={styles.listItem} onPress={handleOpenEdit} activeOpacity={0.7}>
+            <TouchableOpacity style={styles.listItem} onPress={() => router.push('/personal-info')} activeOpacity={0.7}>
               <MaterialIcons name="person-outline" size={22} color={colors.outline} />
               <Text style={[styles.listItemText, Typography.metricUnit, { color: colors.text }]}>Personal Information</Text>
               <MaterialIcons name="chevron-right" size={22} color={colors.outline} style={styles.chevron} />
@@ -437,24 +482,45 @@ export default function ProfileScreen() {
             </View>
             <View style={{ paddingLeft: Spacing.xl + 6 }}>
               <ToggleRow
+                label="Low Balance Alerts"
+                sublabel="When balance drops into caution range"
+                value={notificationPreferences.lowBalanceEnabled}
+                onValueChange={(val) => updateNotificationPreferences({ lowBalanceEnabled: val })}
+              />
+              <View style={[styles.divider, { backgroundColor: colors.outlineVariant }]} />
+              <ToggleRow
+                label="High Usage Warnings"
+                sublabel="Spikes in daily consumption pattern"
+                value={notificationPreferences.unusualUsageEnabled}
+                onValueChange={(val) => updateNotificationPreferences({ unusualUsageEnabled: val })}
+              />
+              <View style={[styles.divider, { backgroundColor: colors.outlineVariant }]} />
+              <ToggleRow
+                label="Recharge Reminders"
+                sublabel="Estimated days remaining alerts"
+                value={notificationPreferences.rechargeReminderEnabled}
+                onValueChange={(val) => updateNotificationPreferences({ rechargeReminderEnabled: val })}
+              />
+              <View style={[styles.divider, { backgroundColor: colors.outlineVariant }]} />
+              <ToggleRow
                 label="Payment Confirmations"
-                sublabel="Get receipts for token purchases"
-                value={paymentNotifs}
-                onValueChange={setPaymentNotifs}
+                sublabel="Receipts for electricity token vending"
+                value={notificationPreferences.purchaseUpdatesEnabled}
+                onValueChange={(val) => updateNotificationPreferences({ purchaseUpdatesEnabled: val })}
               />
               <View style={[styles.divider, { backgroundColor: colors.outlineVariant }]} />
               <ToggleRow
-                label="Low Balance Alert"
-                sublabel="When estimate drops below 3 days"
-                value={lowBalanceAlert}
-                onValueChange={setLowBalanceAlert}
+                label="Wallet Funding Updates"
+                sublabel="Deposit credits and funding alerts"
+                value={notificationPreferences.walletFundingEnabled}
+                onValueChange={(val) => updateNotificationPreferences({ walletFundingEnabled: val })}
               />
               <View style={[styles.divider, { backgroundColor: colors.outlineVariant }]} />
               <ToggleRow
-                label="High Usage Warning"
-                sublabel="Spikes in daily consumption"
-                value={highUsageWarning}
-                onValueChange={setHighUsageWarning}
+                label="AI Energy Insights"
+                sublabel="Periodic consumption advice & analysis"
+                value={notificationPreferences.aiInsightsEnabled}
+                onValueChange={(val) => updateNotificationPreferences({ aiInsightsEnabled: val })}
               />
             </View>
             <View style={[styles.divider, { backgroundColor: colors.outlineVariant }]} />
@@ -480,16 +546,60 @@ export default function ProfileScreen() {
         <View style={styles.section}>
           <Text style={[styles.sectionLabel, Typography.labelCaps, { color: colors.outline }]}>More</Text>
           <View style={[styles.listCard, { backgroundColor: colors.surface, borderColor: colors.outlineVariant }]}>
-            <TouchableOpacity style={styles.listItem} activeOpacity={0.7}>
+            <TouchableOpacity 
+              style={styles.listItem} 
+              activeOpacity={0.7}
+              onPress={() => CustomAlert.alert('Security', 'Your PayPawa account is protected by Supabase Row-Level Security and financial-grade encryption.', [{ text: 'OK', style: 'default' }], { type: 'info' })}
+            >
               <MaterialIcons name="lock-outline" size={22} color={colors.outline} />
-              <Text style={[styles.listItemText, Typography.metricUnit, { color: colors.text }]}>Security</Text>
+              <Text style={[styles.listItemText, Typography.metricUnit, { color: colors.text }]}>Security & Encryption</Text>
               <MaterialIcons name="chevron-right" size={22} color={colors.outline} style={styles.chevron} />
             </TouchableOpacity>
             <View style={[styles.divider, { backgroundColor: colors.outlineVariant }]} />
-            <TouchableOpacity style={styles.listItem} activeOpacity={0.7}>
-              <MaterialIcons name="help-outline" size={22} color={colors.outline} />
-              <Text style={[styles.listItemText, Typography.metricUnit, { color: colors.text }]}>Help & Support</Text>
+            <TouchableOpacity 
+              style={styles.listItem} 
+              activeOpacity={0.7}
+              onPress={() => router.push('/support' as any)}
+            >
+              <MaterialIcons name="headset-mic" size={22} color={colors.outline} />
+              <Text style={[styles.listItemText, Typography.metricUnit, { color: colors.text }]}>Help & Support Center</Text>
               <MaterialIcons name="chevron-right" size={22} color={colors.outline} style={styles.chevron} />
+            </TouchableOpacity>
+            <View style={[styles.divider, { backgroundColor: colors.outlineVariant }]} />
+            <TouchableOpacity 
+              style={styles.listItem} 
+              activeOpacity={0.7}
+              onPress={() => { setLegalModalType('terms'); setLegalModalVisible(true); }}
+            >
+              <MaterialIcons name="description" size={22} color={colors.outline} />
+              <Text style={[styles.listItemText, Typography.metricUnit, { color: colors.text }]}>Terms of Service</Text>
+              <MaterialIcons name="chevron-right" size={22} color={colors.outline} style={styles.chevron} />
+            </TouchableOpacity>
+            <View style={[styles.divider, { backgroundColor: colors.outlineVariant }]} />
+            <TouchableOpacity 
+              style={styles.listItem} 
+              activeOpacity={0.7}
+              onPress={() => { setLegalModalType('privacy'); setLegalModalVisible(true); }}
+            >
+              <MaterialIcons name="privacy-tip" size={22} color={colors.outline} />
+              <Text style={[styles.listItemText, Typography.metricUnit, { color: colors.text }]}>Privacy Policy</Text>
+              <MaterialIcons name="chevron-right" size={22} color={colors.outline} style={styles.chevron} />
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Danger Zone (App Store Compliance) */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionLabel, Typography.labelCaps, { color: colors.error }]}>Danger Zone</Text>
+          <View style={[styles.listCard, { backgroundColor: colors.surface, borderColor: 'rgba(239, 68, 68, 0.2)' }]}>
+            <TouchableOpacity 
+              style={styles.listItem} 
+              activeOpacity={0.7}
+              onPress={() => { setDeleteConfirmText(''); setDeleteModalVisible(true); }}
+            >
+              <MaterialIcons name="delete-forever" size={22} color={colors.error} />
+              <Text style={[styles.listItemText, Typography.metricUnit, { color: colors.error }]}>Delete Account</Text>
+              <MaterialIcons name="chevron-right" size={22} color={colors.error} style={styles.chevron} />
             </TouchableOpacity>
           </View>
         </View>
@@ -512,6 +622,16 @@ export default function ProfileScreen() {
             </>
           )}
         </TouchableOpacity>
+
+        {/* App Version Footer */}
+        <View style={{ alignItems: 'center', marginBottom: Spacing.xl }}>
+          <Text style={[Typography.labelCaps, { color: colors.outline, fontSize: 12 }]}>
+            PayPawa • Version 1.0.0 (Build 1)
+          </Text>
+          <Text style={[Typography.bodyMd, { color: colors.textSecondary, fontSize: 11, marginTop: 2 }]}>
+            Licensed by NERC Distribution Partners • SquadCo Gateway
+          </Text>
+        </View>
       </ScrollView>
 
       {/* Edit Profile & Personal Info Modal */}
@@ -616,6 +736,156 @@ export default function ProfileScreen() {
           </View>
         </KeyboardAvoidingView>
       </Modal>
+
+      {/* Help & Support Modal */}
+      <Modal
+        visible={supportModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setSupportModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: colors.surface, borderColor: colors.outlineVariant }]}>
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, Typography.headlineMd, { color: colors.primary }]}>
+                Help & Customer Support
+              </Text>
+              <TouchableOpacity onPress={() => setSupportModalVisible(false)} style={styles.modalCloseBtn}>
+                <MaterialIcons name="close" size={22} color={colors.outline} />
+              </TouchableOpacity>
+            </View>
+            <Text style={[Typography.bodyMd, { color: colors.textSecondary, marginBottom: Spacing.md }]}>
+              Our dedicated support team is available 24/7 to assist with payment inquiries, meter reconciliation, and token delivery.
+            </Text>
+            <View style={{ gap: Spacing.sm, marginBottom: Spacing.lg }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.sm }}>
+                <MaterialIcons name="email" size={20} color={colors.primary} />
+                <Text style={[Typography.metricUnit, { color: colors.text }]}>support@paypawa.ng</Text>
+              </View>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.sm }}>
+                <MaterialIcons name="phone" size={20} color={colors.primary} />
+                <Text style={[Typography.metricUnit, { color: colors.text }]}>+234 (0) 700-PAYPAWA</Text>
+              </View>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.sm }}>
+                <MaterialIcons name="schedule" size={20} color={colors.primary} />
+                <Text style={[Typography.metricUnit, { color: colors.text }]}>Mon – Sun: 24 Hours Active</Text>
+              </View>
+            </View>
+            <TouchableOpacity
+              style={[styles.modalBtn, { backgroundColor: colors.primary }]}
+              onPress={() => setSupportModalVisible(false)}
+            >
+              <Text style={[styles.modalBtnText, Typography.metricUnit, { color: isDark ? colors.background : colors.white }]}>
+                Close
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Terms of Service & Privacy Policy Modal */}
+      <Modal
+        visible={legalModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setLegalModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: colors.surface, borderColor: colors.outlineVariant, maxHeight: '80%' }]}>
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, Typography.headlineMd, { color: colors.primary }]}>
+                {legalModalType === 'terms' ? 'Terms of Service' : 'Privacy Policy'}
+              </Text>
+              <TouchableOpacity onPress={() => setLegalModalVisible(false)} style={styles.modalCloseBtn}>
+                <MaterialIcons name="close" size={22} color={colors.outline} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={{ marginBottom: Spacing.md }}>
+              {legalModalType === 'terms' ? (
+                <Text style={[Typography.bodyMd, { color: colors.textSecondary, lineHeight: 20 }]}>
+                  Welcome to PayPawa. By creating an account, registering an electricity meter, and vending utility tokens through our platform, you agree to comply with our terms.{"\n\n"}
+                  1. Payment & Vending: Electricity tokens are vended through authorized DISCO gateways (SquadCo/GTCO). Transactions are non-refundable once an electricity token is successfully issued by the utility provider.{"\n\n"}
+                  2. Wallet Integrity: Wallet balances reflect stored value exclusively for utility payments and are protected by double-entry ledger verification. Overdrafts or unauthorized debits are strictly prohibited.{"\n\n"}
+                  3. Meter Data: You represent that you are authorized to vend electricity for registered meter numbers.
+                </Text>
+              ) : (
+                <Text style={[Typography.bodyMd, { color: colors.textSecondary, lineHeight: 20 }]}>
+                  Your privacy is paramount to PayPawa.{"\n\n"}
+                  1. Data Collection: We collect contact info (name, email, phone) and utility meter information strictly to process electricity payments, calculate consumption cadence, and alert you to low balances.{"\n\n"}
+                  2. Financial Security: We never store debit/credit card PANs or CVVs. All payment transactions are tokenized and processed through PCI-DSS Level 1 compliant partners.{"\n\n"}
+                  3. Right to Erasure: In compliance with NDPR and App Store guidelines, you can permanently request account deletion at any time from Profile &gt; Danger Zone.
+                </Text>
+              )}
+            </ScrollView>
+            <TouchableOpacity
+              style={[styles.modalBtn, { backgroundColor: colors.primary }]}
+              onPress={() => setLegalModalVisible(false)}
+            >
+              <Text style={[styles.modalBtnText, Typography.metricUnit, { color: isDark ? colors.background : colors.white }]}>
+                I Understand
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Delete Account Modal (App Store Guideline 5.1.1(v)) */}
+      <Modal
+        visible={deleteModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setDeleteModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: colors.surface, borderColor: colors.error }]}>
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, Typography.headlineMd, { color: colors.error }]}>
+                Delete Account
+              </Text>
+              <TouchableOpacity onPress={() => setDeleteModalVisible(false)} style={styles.modalCloseBtn}>
+                <MaterialIcons name="close" size={22} color={colors.outline} />
+              </TouchableOpacity>
+            </View>
+            <Text style={[Typography.bodyMd, { color: colors.textSecondary, marginBottom: Spacing.sm }]}>
+              This action is <Text style={{ fontWeight: '700', color: colors.error }}>permanent and irreversible</Text>. 
+              Your profile, registered meters, and alerts will be erased, and your wallet will be closed.
+            </Text>
+            <Text style={[Typography.bodyMd, { color: colors.outline, marginBottom: Spacing.md }]}>
+              Type <Text style={{ fontWeight: '700', color: colors.text }}>DELETE</Text> to confirm:
+            </Text>
+            <TextInput
+              style={[styles.modalInput, { borderColor: colors.error, color: colors.text, marginBottom: Spacing.lg }]}
+              value={deleteConfirmText}
+              onChangeText={setDeleteConfirmText}
+              placeholder="DELETE"
+              placeholderTextColor={colors.outline}
+              autoCapitalize="characters"
+            />
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={[styles.modalBtn, { backgroundColor: colors.surfaceContainerHigh }]}
+                onPress={() => setDeleteModalVisible(false)}
+                disabled={deletingAccount}
+              >
+                <Text style={[styles.modalBtnText, Typography.metricUnit, { color: colors.text }]}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalBtn, { backgroundColor: colors.error }]}
+                onPress={handleDeleteAccount}
+                disabled={deletingAccount}
+              >
+                {deletingAccount ? (
+                  <ActivityIndicator color={colors.white} size="small" />
+                ) : (
+                  <Text style={[styles.modalBtnText, Typography.metricUnit, { color: colors.white }]}>
+                    Confirm Delete
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -650,6 +920,18 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.xs,
   },
   avatarText: {},
+  avatarEditBadge: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#ffffff',
+  },
   profileName: {},
   profileEmail: {},
   heroBadgeRow: {

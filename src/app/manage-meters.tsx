@@ -17,6 +17,7 @@ import { MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Spacing, Rounded, Typography } from '@/constants/theme';
 import { useApp } from '@/context/AppContext';
 import { useTheme } from '@/context/ThemeContext';
+import { CustomAlert } from '@/context/AlertContext';
 import type { Meter } from '@/context/AppContext';
 
 export default function ManageMetersScreen() {
@@ -49,7 +50,7 @@ export default function ManageMetersScreen() {
 
   const handleDelete = (meter: Meter) => {
     const isLast = meters.length === 1;
-    Alert.alert(
+    CustomAlert.alert(
       'Remove Meter',
       isLast
         ? `"${meter.name}" is your only meter. Removing it will leave your account with no active meter.`
@@ -57,7 +58,8 @@ export default function ManageMetersScreen() {
       [
         { text: 'Cancel', style: 'cancel' },
         { text: 'Remove', style: 'destructive', onPress: () => deleteMeter(meter.id) },
-      ]
+      ],
+      { type: 'confirm' }
     );
   };
 

@@ -9,6 +9,7 @@ import {
   Platform,
   ScrollView,
   ActivityIndicator,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -20,7 +21,7 @@ import type { AccountTypeEnum } from '@/types/auth';
 
 export default function SignUp() {
   const { colors, isDark } = useTheme();
-  const { signup, login } = useApp();
+  const { signup, login, resetPassword } = useApp();
   const params = useLocalSearchParams<{ mode?: 'signup' | 'signin' }>();
 
   const [mode, setMode] = useState<'signup' | 'signin'>('signup');
@@ -36,6 +37,13 @@ export default function SignUp() {
   const [serverError, setServerError] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  // Forgot Password State
+  const [isForgotModalOpen, setIsForgotModalOpen] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotLoading, setForgotLoading] = useState(false);
+  const [forgotSuccess, setForgotSuccess] = useState<string | null>(null);
+  const [forgotError, setForgotError] = useState<string | null>(null);
+
   useEffect(() => {
     if (params.mode === 'signin') {
       setMode('signin');
@@ -43,6 +51,35 @@ export default function SignUp() {
       setMode('signup');
     }
   }, [params.mode]);
+
+  const handleResetPassword = async () => {
+    setForgotError(null);
+    setForgotSuccess(null);
+
+    const trimmed = forgotEmail.trim();
+    if (!trimmed) {
+      setForgotError('Please enter your registered email address.');
+      return;
+    }
+    if (!/\S+@\S+\.\S+/.test(trimmed)) {
+      setForgotError('Please enter a valid email address.');
+      return;
+    }
+
+    setForgotLoading(true);
+    try {
+      const res = await resetPassword(trimmed);
+      if (res.success) {
+        setForgotSuccess('Password reset link sent! Check your inbox for instructions.');
+      } else {
+        setForgotError(res.error || 'Failed to send password reset email. Please try again.');
+      }
+    } catch (err: any) {
+      setForgotError('An unexpected error occurred. Please check network connection.');
+    } finally {
+      setForgotLoading(false);
+    }
+  };
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
@@ -83,7 +120,11 @@ export default function SignUp() {
         );
 
         if (result.success) {
-          router.replace('/energy-setup');
+          if (result.isOnboarded || result.profile?.onboarding_completed || result.profile?.is_onboarded) {
+            router.replace('/(tabs)/home');
+          } else {
+            router.replace('/energy-setup');
+          }
         } else {
           setServerError(result.error || 'Failed to create account. Please try again.');
         }
@@ -91,7 +132,7 @@ export default function SignUp() {
         const result = await login(email.trim(), password);
 
         if (result.success) {
-          if (result.profile?.onboarding_completed || result.profile?.is_onboarded) {
+          if (result.isOnboarded || result.profile?.onboarding_completed || result.profile?.is_onboarded) {
             router.replace('/(tabs)/home');
           } else {
             router.replace('/energy-setup');
@@ -129,15 +170,6 @@ export default function SignUp() {
             >
               <MaterialIcons name="chevron-left" size={24} color={colors.text} />
             </TouchableOpacity>
-
-            <View style={styles.logoRow}>
-              <View style={[styles.logoBadge, { backgroundColor: colors.primary }]}>
-                <MaterialCommunityIcons name="bolt" size={18} color={colors.secondary} />
-              </View>
-              <Text style={[styles.logoText, Typography.headlineMd, { fontSize: 16, color: colors.primary }]}>
-                Smart<Text style={{ color: colors.secondary }}>Electricity</Text>
-              </Text>
-            </View>
           </View>
 
           {/* Tab Mode Switcher */}
@@ -184,13 +216,13 @@ export default function SignUp() {
           {/* Titles */}
           <View style={styles.titleSection}>
             <Text style={[styles.title, Typography.headlineLg, { color: colors.text }]}>
-              {mode === 'signup' ? 'Join Smart Electricity ⚡' : 'Welcome Back 👋'}
+              {mode === 'signup' ? 'Create your PayPawa account' : 'Welcome back'}
             </Text>
-            <Text style={[styles.subtitle, Typography.bodyMd, { color: colors.textSecondary }]}>
-              {mode === 'signup'
-                ? 'Create your account to manage meters, purchase tokens, and optimize your energy usage.'
-                : 'Sign in to access your saved meters, electricity tokens, and wallet.'}
-            </Text>
+            {mode === 'signin' && (
+              <Text style={[styles.subtitle, Typography.bodyMd, { color: colors.textSecondary }]}>
+                Sign in to access your saved meters, electricity tokens, and wallet.
+              </Text>
+            )}
           </View>
 
           {/* Server Error Banner */}
@@ -390,6 +422,24 @@ export default function SignUp() {
               {errors.password ? (
                 <Text style={[styles.errorText, Typography.labelCaps, { color: colors.error }]}>{errors.password}</Text>
               ) : null}
+
+              {/* Forgot Password Link (Sign In Mode) */}
+              {mode === 'signin' && (
+                <TouchableOpacity
+                  onPress={() => {
+                    setForgotEmail(email);
+                    setForgotError(null);
+                    setForgotSuccess(null);
+                    setIsForgotModalOpen(true);
+                  }}
+                  style={styles.forgotBtn}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.forgotText, Typography.metricUnit, { color: colors.secondary }]}>
+                    Forgot Password?
+                  </Text>
+                </TouchableOpacity>
+              )}
             </View>
           </View>
 
@@ -425,6 +475,82 @@ export default function SignUp() {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* Forgot Password Recovery Modal */}
+      <Modal
+        visible={isForgotModalOpen}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setIsForgotModalOpen(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
+            <View style={styles.modalHeader}>
+              <View style={[styles.modalIconWrap, { backgroundColor: 'rgba(132, 204, 22, 0.15)' }]}>
+                <MaterialIcons name="lock-reset" size={28} color={colors.secondary} />
+              </View>
+              <TouchableOpacity onPress={() => setIsForgotModalOpen(false)} style={styles.modalCloseBtn}>
+                <MaterialIcons name="close" size={22} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={[styles.modalTitle, Typography.headlineLg, { color: colors.text }]}>
+              Reset Password
+            </Text>
+            <Text style={[styles.modalSubtitle, Typography.bodyMd, { color: colors.textSecondary }]}>
+              Enter your registered email address and we'll send you instructions to reset your password.
+            </Text>
+
+            {forgotSuccess ? (
+              <View style={[styles.successBanner, { backgroundColor: isDark ? 'rgba(132, 204, 22, 0.15)' : '#ECFDF5', borderColor: colors.secondary }]}>
+                <MaterialIcons name="check-circle-outline" size={20} color={colors.secondary} />
+                <Text style={[styles.bannerText, Typography.metricUnit, { color: colors.secondary }]}>{forgotSuccess}</Text>
+              </View>
+            ) : null}
+
+            {forgotError ? (
+              <View style={[styles.errorBannerModal, { backgroundColor: isDark ? 'rgba(239, 68, 68, 0.15)' : '#FEE2E2', borderColor: colors.error }]}>
+                <MaterialIcons name="error-outline" size={20} color={colors.error} />
+                <Text style={[styles.bannerText, Typography.metricUnit, { color: colors.error }]}>{forgotError}</Text>
+              </View>
+            ) : null}
+
+            <View style={styles.modalInputGroup}>
+              <Text style={[styles.label, Typography.metricUnit, { color: colors.textSecondary }]}>Registered Email</Text>
+              <View style={[styles.inputWrapper, { backgroundColor: isDark ? colors.surfaceContainerLow : colors.surfaceContainer, borderColor: colors.outlineVariant }]}>
+                <TextInput
+                  style={[styles.input, Typography.bodyMd, { color: colors.text }]}
+                  placeholder="e.g. musa@example.com"
+                  placeholderTextColor={colors.outline}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  value={forgotEmail}
+                  onChangeText={(text) => {
+                    setForgotEmail(text);
+                    if (forgotError) setForgotError(null);
+                  }}
+                  editable={!forgotLoading}
+                />
+              </View>
+            </View>
+
+            <TouchableOpacity
+              style={[styles.button, { backgroundColor: colors.primary, marginTop: Spacing.md }, forgotLoading ? styles.buttonDisabled : null]}
+              onPress={handleResetPassword}
+              disabled={forgotLoading}
+              activeOpacity={0.85}
+            >
+              {forgotLoading ? (
+                <ActivityIndicator color={colors.white} size="small" />
+              ) : (
+                <Text style={[styles.buttonText, Typography.headlineMd, { color: isDark ? colors.background : colors.white, fontSize: 16 }]}>
+                  Send Reset Link
+                </Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -455,21 +581,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  logoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.xs,
-  },
-  logoBadge: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  logoText: {
-    fontWeight: '800',
   },
   tabSwitcher: {
     flexDirection: 'row',
@@ -595,5 +706,78 @@ const styles = StyleSheet.create({
   footerText: {},
   signInText: {
     fontWeight: '700',
+  },
+  forgotBtn: {
+    alignSelf: 'flex-end',
+    marginTop: Spacing.xs,
+    paddingVertical: 4,
+  },
+  forgotText: {
+    fontWeight: '700',
+    fontSize: 13,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    padding: Spacing.containerMargin,
+  },
+  modalContent: {
+    borderRadius: Rounded.lg,
+    padding: Spacing.lg,
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: Spacing.md,
+  },
+  modalIconWrap: {
+    width: 48,
+    height: 48,
+    borderRadius: Rounded.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalCloseBtn: {
+    padding: 4,
+  },
+  modalTitle: {
+    marginBottom: Spacing.xs,
+  },
+  modalSubtitle: {
+    lineHeight: 20,
+    marginBottom: Spacing.md,
+  },
+  successBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    borderWidth: 1,
+    borderRadius: Rounded.md,
+    padding: Spacing.md,
+    marginBottom: Spacing.md,
+  },
+  errorBannerModal: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    borderWidth: 1,
+    borderRadius: Rounded.md,
+    padding: Spacing.md,
+    marginBottom: Spacing.md,
+  },
+  bannerText: {
+    flex: 1,
+    fontSize: 13,
+  },
+  modalInputGroup: {
+    gap: Spacing.xs,
+    marginBottom: Spacing.sm,
   },
 });

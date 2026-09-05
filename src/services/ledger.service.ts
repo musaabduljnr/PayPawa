@@ -71,6 +71,14 @@ export class LedgerService {
       }
     }
 
+    // Collect all electricity transactions that were refunded/reversed
+    const refundedElecTxIds = new Set<string>();
+    for (const r of ledgerRows) {
+      if (r.type === 'refund_credit' && r.related_electricity_tx_id) {
+        refundedElecTxIds.add(r.related_electricity_tx_id);
+      }
+    }
+
     // 3. Map to unified ActivityItem format
     const items: ActivityItem[] = ledgerRows.map((row) => {
       const isFunding = row.type === 'funding';
@@ -82,13 +90,19 @@ export class LedgerService {
         (row.reference ? elecTxRefMap.get(row.reference) : undefined) ||
         (userElecRows && userElecRows.find((e: any) => Math.abs(Number(e.amount_kobo)) === Math.abs(Number(row.amount_kobo))));
 
+      const isReversedOrFailed =
+        (elecTx && (elecTx.status === 'reversed' || elecTx.status === 'failed')) ||
+        Boolean(row.related_electricity_tx_id && refundedElecTxIds.has(row.related_electricity_tx_id));
+
       let title = 'Transaction';
       let type: ActivityItem['type'] = 'adjustment';
       if (isFunding) {
         title = 'Wallet Top-Up';
         type = 'funding';
       } else if (isPurchase) {
-        title = elecTx?.disco_code ? `${elecTx.disco_code.toUpperCase()} Token` : 'Electricity Token';
+        title = isReversedOrFailed
+          ? `${elecTx?.disco_code ? elecTx.disco_code.toUpperCase() + ' ' : ''}Token (Failed)`
+          : (elecTx?.disco_code ? `${elecTx.disco_code.toUpperCase()} Token` : 'Electricity Token');
         type = 'purchase';
       } else if (isRefund) {
         title = 'Wallet Refund';
@@ -104,7 +118,14 @@ export class LedgerService {
 
       const amountNaira = Math.abs(Number(row.amount_kobo)) / 100;
       const estimatedUnits = Math.round((amountNaira / 206.8) * 10) / 10;
-      const unitsKwh = elecTx?.units_kwh ? Number(elecTx.units_kwh) : (isPurchase ? estimatedUnits : undefined);
+      // CRITICAL: NEVER assign units to failed or reversed purchases
+      const unitsKwh = isReversedOrFailed
+        ? undefined
+        : elecTx?.units_kwh
+        ? Number(elecTx.units_kwh)
+        : (isPurchase ? estimatedUnits : undefined);
+
+      const status: ActivityItem['status'] = isReversedOrFailed ? 'Failed' : 'Completed';
 
       return {
         id: row.id,
@@ -115,19 +136,59 @@ export class LedgerService {
         balanceAfterNaira: Number(row.balance_after_kobo) / 100,
         dateFormatted,
         createdAt: row.created_at,
-        status: 'Completed',
+        status,
         reference: row.reference,
-        description: row.description || '',
+        description: isReversedOrFailed
+          ? (elecTx?.failure_message || row.description || 'Transaction refunded')
+          : (row.description || ''),
         meterNumber: elecTx?.meter_number,
         discoName: elecTx?.disco_code?.toUpperCase(),
         unitsKwh,
-        token: elecTx?.token || undefined,
+        token: isReversedOrFailed ? undefined : elecTx?.token || undefined,
       };
     });
 
-    const totalCount = count || items.length;
-    const hasMore = offset + items.length < totalCount;
+    // 4. Extract failed electricity transactions that did not generate a wallet ledger row
+    const failedElecItems: ActivityItem[] = [];
+    if (userElecRows && userElecRows.length > 0 && filter !== 'funding' && filter !== 'refund') {
+      const recordedElecIds = new Set(ledgerRows.map((r) => r.related_electricity_tx_id).filter(Boolean));
+      const failedElec = userElecRows.filter(
+        (e) => (e.status as string) !== 'successful' && !recordedElecIds.has(e.id)
+      );
 
-    return { items, totalCount, hasMore };
+      for (const row of failedElec) {
+        const dateObj = new Date(row.created_at);
+        const isToday = dateObj.toDateString() === new Date().toDateString();
+        const timeStr = dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const dateFormatted = isToday
+          ? `Today, ${timeStr}`
+          : dateObj.toLocaleDateString('en-NG', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+
+        failedElecItems.push({
+          id: row.id,
+          title: row.disco_code ? `${row.disco_code.toUpperCase()} Token (Failed)` : 'Electricity Token (Failed)',
+          type: 'purchase',
+          amountNaira: Math.abs(Number(row.amount_kobo)) / 100,
+          amountKobo: Number(row.amount_kobo),
+          dateFormatted,
+          createdAt: row.created_at,
+          status: 'Failed',
+          reference: row.reference || `REF-${row.id.slice(0, 8)}`,
+          description: row.failure_message || row.error_message || 'Transaction could not be completed by provider',
+          meterNumber: row.meter_number,
+          discoName: row.disco_code?.toUpperCase(),
+          unitsKwh: undefined,
+        });
+      }
+    }
+
+    const mergedItems = [...items, ...failedElecItems].sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+
+    const totalCount = count ? count + failedElecItems.length : mergedItems.length;
+    const hasMore = offset + mergedItems.length < totalCount;
+
+    return { items: mergedItems, totalCount, hasMore };
   }
 }

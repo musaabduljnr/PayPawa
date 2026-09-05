@@ -22,9 +22,10 @@ export class PaystackPaymentProvider implements PaymentProvider {
   private baseUrl: string;
 
   constructor(config?: PaystackConfig) {
-    this.secretKey = config?.secretKey || process.env.PAYSTACK_SECRET_KEY || process.env.EXPO_PUBLIC_PAYSTACK_SECRET_KEY || '';
+    // Security Hardening: Never fall back to EXPO_PUBLIC_ prefixed secret keys in client bundles
+    this.secretKey = config?.secretKey || process.env.PAYSTACK_SECRET_KEY || '';
     this.publicKey = config?.publicKey || process.env.EXPO_PUBLIC_PAYSTACK_PUBLIC_KEY || '';
-    this.webhookSecret = config?.webhookSecret || process.env.PAYSTACK_WEBHOOK_SECRET || process.env.EXPO_PUBLIC_PAYSTACK_WEBHOOK_SECRET || this.secretKey;
+    this.webhookSecret = config?.webhookSecret || process.env.PAYSTACK_WEBHOOK_SECRET || this.secretKey;
     this.baseUrl = (config?.baseUrl || 'https://api.paystack.co').replace(/\/$/, '');
   }
 
@@ -46,6 +47,9 @@ export class PaystackPaymentProvider implements PaymentProvider {
         responseMessage: 'Paystack secret key is not configured in server environment.',
       };
     }
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
 
     try {
       const channels = request.paymentMethod === 'card'
@@ -76,8 +80,10 @@ export class PaystackPaymentProvider implements PaymentProvider {
             customer_name: request.customerName,
           },
         }),
+        signal: controller.signal,
       });
 
+      clearTimeout(timeoutId);
       const data = await response.json();
 
       if (!response.ok || !data.status) {
@@ -100,11 +106,14 @@ export class PaystackPaymentProvider implements PaymentProvider {
         rawResponse: data,
       };
     } catch (err: any) {
+      clearTimeout(timeoutId);
       return {
         success: false,
         providerReference: '',
         internalReference: request.internalReference,
-        responseMessage: `Paystack network error: ${err.message}`,
+        responseMessage: err.name === 'AbortError'
+          ? 'Paystack initialization timed out after 15s.'
+          : `Paystack network error: ${err.message}`,
       };
     }
   }
@@ -122,6 +131,9 @@ export class PaystackPaymentProvider implements PaymentProvider {
       };
     }
 
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
+
     try {
       const refToQuery = encodeURIComponent(request.providerReference || request.internalReference);
       const response = await fetch(`${this.baseUrl}/transaction/verify/${refToQuery}`, {
@@ -130,8 +142,10 @@ export class PaystackPaymentProvider implements PaymentProvider {
           Authorization: `Bearer ${this.secretKey}`,
           'Content-Type': 'application/json',
         },
+        signal: controller.signal,
       });
 
+      clearTimeout(timeoutId);
       const data = await response.json();
 
       if (!response.ok || !data.status) {
@@ -165,6 +179,7 @@ export class PaystackPaymentProvider implements PaymentProvider {
         rawResponse: data,
       };
     } catch (err: any) {
+      clearTimeout(timeoutId);
       return {
         success: false,
         status: 'unknown',
@@ -172,7 +187,9 @@ export class PaystackPaymentProvider implements PaymentProvider {
         currency: 'NGN',
         providerReference: request.providerReference || request.internalReference,
         internalReference: request.internalReference,
-        responseMessage: `Paystack verification network exception: ${err.message}`,
+        responseMessage: err.name === 'AbortError'
+          ? 'Paystack verification timed out after 15s.'
+          : `Paystack verification network exception: ${err.message}`,
       };
     }
   }

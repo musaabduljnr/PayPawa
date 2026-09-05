@@ -6,12 +6,15 @@ import {
   TouchableOpacity,
   Animated,
   Easing,
+  ActivityIndicator,
+  ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { Colors, Spacing, Rounded, Typography } from '@/constants/theme';
+import { Spacing, Rounded, Typography } from '@/constants/theme';
 import { useApp } from '@/context/AppContext';
+import { useTheme } from '@/context/ThemeContext';
 import { ElectricityService } from '@/services';
 
 export default function VerifyMeterScreen() {
@@ -21,15 +24,16 @@ export default function VerifyMeterScreen() {
     nickname: string;
   }>();
   const { addMeter } = useApp();
+  const { colors, isDark } = useTheme();
   const [phase, setPhase] = useState<'loading' | 'success' | 'error'>('loading');
   const [customerData, setCustomerData] = useState<{
     name: string;
     address: string;
     tariff?: string;
   }>({
-    name: 'Musa Ibrahim',
-    address: 'Plot 12, Wuse Zone 5, Abuja',
-    tariff: 'R2-SinglePhase',
+    name: '',
+    address: '',
+    tariff: '',
   });
   const [errorMessage, setErrorMessage] = useState('');
   const spinValue = new Animated.Value(0);
@@ -94,60 +98,141 @@ export default function VerifyMeterScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Header */}
-      <View style={styles.topBar}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-          <MaterialIcons name="arrow-back" size={22} color={Colors.text} />
+      <View style={[styles.topBar, { borderBottomColor: colors.outlineVariant }]}>
+        <TouchableOpacity
+          style={[styles.backBtn, { backgroundColor: colors.surfaceContainer }]}
+          onPress={() => router.back()}
+          activeOpacity={0.7}
+        >
+          <MaterialIcons name="arrow-back" size={22} color={colors.text} />
         </TouchableOpacity>
-        <Text style={[styles.topBarTitle, Typography.headlineMd]}>Meter Verification</Text>
+        <Text style={[styles.topBarTitle, Typography.headlineMd, { color: colors.text }]}>Meter Verification</Text>
         <View style={{ width: 40 }} />
       </View>
 
-      <View style={styles.content}>
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+      >
         {phase === 'loading' && (
           /* Loading State */
           <View style={styles.loadingContainer}>
             <View style={styles.spinnerWrapper}>
-              <View style={styles.spinnerTrack} />
+              <ActivityIndicator size="large" color={colors.primary} style={{ position: 'absolute' }} />
+              <View style={[styles.spinnerTrack, { borderColor: colors.surfaceContainerHigh }]} />
               <Animated.View
-                style={[styles.spinner, { transform: [{ rotate: spin }] }]}
+                style={[styles.spinner, { transform: [{ rotate: spin }], borderTopColor: colors.primary }]}
               />
-              <MaterialIcons name="electrical-services" size={36} color={Colors.primary} />
+              <MaterialIcons name="electrical-services" size={28} color={colors.primary} />
             </View>
-            <Text style={[styles.loadingTitle, Typography.headlineLgMobile]}>Verifying with Provider</Text>
-            <Text style={[styles.loadingSubtitle, Typography.bodyMd]}>
-              Connecting to VTpass / DISCO gateway to validate meter details...
+            <Text style={[styles.loadingTitle, Typography.headlineLgMobile, { color: colors.primary }]}>
+              Verifying with Provider
+            </Text>
+            <Text style={[styles.loadingSubtitle, Typography.bodyMd, { color: colors.textSecondary }]}>
+              Connecting to utility gateway to validate meter details...
             </Text>
           </View>
         )}
 
         {phase === 'error' && (
           /* Error State */
-          <View style={styles.loadingContainer}>
-            <View style={[styles.successIconRing, { backgroundColor: Colors.errorBg }]}>
-              <MaterialIcons name="error-outline" size={52} color={Colors.error} />
+          <View style={styles.errorContainer}>
+            {/* Error Icon */}
+            <View
+              style={[
+                styles.errorIconRing,
+                { backgroundColor: colors.errorBg, borderColor: 'rgba(248,81,73,0.25)' },
+              ]}
+            >
+              <View style={styles.errorIcon}>
+                <MaterialIcons name="error-outline" size={56} color={colors.error} />
+              </View>
             </View>
-            <Text style={[styles.loadingTitle, Typography.headlineLgMobile, { color: Colors.error }]}>
+
+            <Text style={[styles.errorTitle, Typography.headlineLgMobile, { color: colors.error }]}>
               Verification Failed
             </Text>
-            <Text style={[styles.loadingSubtitle, Typography.bodyMd]}>
-              {errorMessage}
+            <Text style={[styles.errorSubtitle, Typography.bodyMd, { color: colors.textSecondary }]}>
+              We couldn't validate this meter with the utility provider.
             </Text>
-            <View style={{ flexDirection: 'row', gap: Spacing.md, marginTop: Spacing.lg }}>
-              <TouchableOpacity
-                style={[styles.confirmBtn, { backgroundColor: Colors.surfaceContainerHigh, flex: 1 }]}
-                onPress={() => router.back()}
-              >
-                <Text style={[styles.confirmBtnText, Typography.headlineMd, { color: Colors.text }]}>Edit Details</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.confirmBtn, { flex: 1 }]}
-                onPress={performVerification}
-              >
-                <MaterialIcons name="refresh" size={20} color={Colors.white} />
-                <Text style={[styles.confirmBtnText, Typography.headlineMd]}>Retry</Text>
-              </TouchableOpacity>
+
+            {/* Details Card */}
+            <View style={[styles.detailsCard, { backgroundColor: colors.surface, borderColor: colors.outlineVariant }]}>
+              <View style={[styles.detailsCardDecor, styles.errorCardDecor, { backgroundColor: colors.error }]} />
+              <View style={styles.detailsRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.detailLabel, Typography.labelCaps, { color: colors.textSecondary }]}>
+                    Meter Number
+                  </Text>
+                  <Text style={[styles.detailValue, Typography.headlineMd, { color: colors.primary }]}>
+                    {meterNumber || '—'}
+                  </Text>
+                </View>
+                <View
+                  style={[
+                    styles.failedBadge,
+                    { backgroundColor: colors.errorBg, borderColor: 'rgba(248,81,73,0.25)' },
+                  ]}
+                >
+                  <MaterialIcons name="cancel" size={13} color={colors.error} />
+                  <Text style={[styles.failedBadgeText, Typography.labelCaps, { color: colors.error }]}>Unverified</Text>
+                </View>
+              </View>
+
+              <View style={[styles.divider, { backgroundColor: colors.surfaceContainerHighest }]} />
+
+              <View style={styles.detailsGrid}>
+                <View style={styles.gridItem}>
+                  <Text style={[styles.detailLabel, Typography.labelCaps, { color: colors.textSecondary }]}>
+                    Provider (DISCO)
+                  </Text>
+                  <Text style={[styles.detailValue, Typography.metricUnit, { color: colors.primary }]}>
+                    {disco || '—'}
+                  </Text>
+                </View>
+                <View style={styles.gridItem}>
+                  <Text style={[styles.detailLabel, Typography.labelCaps, { color: colors.textSecondary }]}>
+                    Type
+                  </Text>
+                  <Text style={[styles.detailValue, Typography.metricUnit, { color: colors.primary }]}>
+                    Prepaid
+                  </Text>
+                </View>
+                <View style={[styles.gridItem, { width: '100%' }]}>
+                  <Text style={[styles.detailLabel, Typography.labelCaps, { color: colors.textSecondary }]}>
+                    Provider Response
+                  </Text>
+                  <View
+                    style={[
+                      styles.errorNoticeBox,
+                      { backgroundColor: colors.surfaceContainerHigh, borderLeftColor: colors.error },
+                    ]}
+                  >
+                    <MaterialIcons name="info-outline" size={16} color={colors.error} />
+                    <Text style={[styles.errorNoticeText, Typography.bodyMd, { color: colors.text }]}>
+                      {errorMessage || 'Unable to verify meter details with provider.'}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+
+              {/* Troubleshooting Tips */}
+              <View style={[styles.tipBox, { borderTopColor: colors.surfaceContainerHighest }]}>
+                <View style={styles.tipHeader}>
+                  <MaterialIcons name="lightbulb-outline" size={15} color={colors.textSecondary} />
+                  <Text style={[styles.tipTitle, Typography.labelCaps, { color: colors.textSecondary }]}>
+                    Suggested Steps
+                  </Text>
+                </View>
+                <Text style={[styles.tipText, Typography.metricUnit, { color: colors.textSecondary }]}>
+                  • Confirm the meter number has 11–13 digits without typos.{'\n'}
+                  • Verify you have selected the correct DISCO for your area.{'\n'}
+                  • Newly installed meters can take 24–48 hours to activate on the provider network.
+                </Text>
+              </View>
             </View>
           </View>
         )}
@@ -156,51 +241,63 @@ export default function VerifyMeterScreen() {
           /* Success State */
           <View style={styles.successContainer}>
             {/* Check Icon */}
-            <View style={styles.successIconRing}>
+            <View style={[styles.successIconRing, { backgroundColor: colors.successBg }]}>
               <View style={styles.successIcon}>
-                <MaterialIcons name="check-circle" size={56} color={Colors.secondaryDark} />
+                <MaterialIcons name="check-circle" size={56} color={colors.secondaryDark} />
               </View>
             </View>
 
-            <Text style={[styles.successTitle, Typography.headlineLgMobile]}>Meter Verified</Text>
-            <Text style={[styles.successSubtitle, Typography.bodyMd]}>
+            <Text style={[styles.successTitle, Typography.headlineLgMobile, { color: colors.primary }]}>
+              Meter Verified
+            </Text>
+            <Text style={[styles.successSubtitle, Typography.bodyMd, { color: colors.textSecondary }]}>
               Your meter details have been validated by the utility provider.
             </Text>
 
             {/* Details Card */}
-            <View style={styles.detailsCard}>
-              <View style={styles.detailsCardDecor} />
+            <View style={[styles.detailsCard, { backgroundColor: colors.surface, borderColor: colors.outlineVariant }]}>
+              <View style={[styles.detailsCardDecor, { backgroundColor: colors.secondary }]} />
               <View style={styles.detailsRow}>
                 <View style={{ flex: 1 }}>
-                  <Text style={[styles.detailLabel, Typography.labelCaps]}>Customer Name</Text>
-                  <Text style={[styles.detailValue, Typography.headlineMd]}>
+                  <Text style={[styles.detailLabel, Typography.labelCaps, { color: colors.textSecondary }]}>
+                    Customer Name
+                  </Text>
+                  <Text style={[styles.detailValue, Typography.headlineMd, { color: colors.primary }]}>
                     {customerData.name}
                   </Text>
                 </View>
                 <View style={styles.activeBadge}>
-                  <MaterialCommunityIcons name="lightning-bolt" size={12} color={Colors.secondaryDark} />
-                  <Text style={[styles.activeBadgeText, Typography.labelCaps]}>Active</Text>
+                  <MaterialCommunityIcons name="lightning-bolt" size={12} color={colors.secondaryDark} />
+                  <Text style={[styles.activeBadgeText, Typography.labelCaps, { color: colors.secondaryDark }]}>
+                    Active
+                  </Text>
                 </View>
               </View>
 
-              <View style={styles.divider} />
+              <View style={[styles.divider, { backgroundColor: colors.surfaceContainerHighest }]} />
 
               <View style={styles.detailsGrid}>
                 <View style={styles.gridItem}>
-                  <Text style={[styles.detailLabel, Typography.labelCaps]}>Meter Number</Text>
-                  <Text style={[styles.detailValue, Typography.metricUnit]}>
+                  <Text style={[styles.detailLabel, Typography.labelCaps, { color: colors.textSecondary }]}>
+                    Meter Number
+                  </Text>
+                  <Text style={[styles.detailValue, Typography.metricUnit, { color: colors.primary }]}>
                     {meterNumber || '0419 8273 645'}
                   </Text>
                 </View>
                 <View style={styles.gridItem}>
-                  <Text style={[styles.detailLabel, Typography.labelCaps]}>Provider</Text>
-                  <Text style={[styles.detailValue, Typography.metricUnit]}>
+                  <Text style={[styles.detailLabel, Typography.labelCaps, { color: colors.textSecondary }]}>
+                    Provider
+                  </Text>
+                  <Text style={[styles.detailValue, Typography.metricUnit, { color: colors.primary }]}>
                     {disco || 'YEDC (Prepaid)'}
                   </Text>
                 </View>
                 <View style={[styles.gridItem, { width: '100%' }]}>
-                  <Text style={[styles.detailLabel, Typography.labelCaps]}>Address</Text>
-                  <Text style={[styles.detailValue, Typography.bodyMd, { color: Colors.textSecondary, fontSize: 13 }]}>
+                  <Text style={[styles.detailLabel, Typography.labelCaps, { color: colors.textSecondary }]}>
+                    Address
+                  </Text>
+                  <Text style={[styles.detailValue, Typography.bodyMd, { color: colors.textSecondary, fontSize: 13 }]}>
                     {customerData.address}
                   </Text>
                 </View>
@@ -208,14 +305,57 @@ export default function VerifyMeterScreen() {
             </View>
           </View>
         )}
-      </View>
+      </ScrollView>
 
       {/* Sticky CTA */}
       {phase === 'success' && (
-        <View style={styles.stickyFooter}>
-          <TouchableOpacity style={styles.confirmBtn} onPress={handleConfirm}>
-            <MaterialIcons name="home" size={20} color={Colors.white} />
-            <Text style={[styles.confirmBtnText, Typography.headlineMd]}>Go to Dashboard</Text>
+        <View style={[styles.stickyFooter, { backgroundColor: colors.background, borderTopColor: colors.outlineVariant }]}>
+          <TouchableOpacity
+            style={[styles.confirmBtn, { backgroundColor: isDark ? colors.secondary : colors.primary }]}
+            onPress={handleConfirm}
+            activeOpacity={0.8}
+          >
+            <MaterialIcons name="home" size={20} color={isDark ? colors.background : colors.white} />
+            <Text
+              style={[
+                styles.confirmBtnText,
+                Typography.headlineMd,
+                { color: isDark ? colors.background : colors.white },
+              ]}
+            >
+              Go to Dashboard
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {phase === 'error' && (
+        <View style={[styles.stickyFooter, { backgroundColor: colors.background, borderTopColor: colors.outlineVariant }]}>
+          <TouchableOpacity
+            style={[styles.confirmBtn, { backgroundColor: isDark ? colors.secondary : colors.primary }]}
+            onPress={() => router.back()}
+            activeOpacity={0.8}
+          >
+            <MaterialIcons name="edit" size={18} color={isDark ? colors.background : colors.white} />
+            <Text
+              style={[
+                styles.confirmBtnText,
+                Typography.headlineMd,
+                { color: isDark ? colors.background : colors.white },
+              ]}
+            >
+              Edit Meter Details
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.secondaryBtn, { backgroundColor: colors.surfaceContainerHigh }]}
+            onPress={performVerification}
+            activeOpacity={0.7}
+          >
+            <MaterialIcons name="refresh" size={18} color={colors.text} />
+            <Text style={[styles.secondaryBtnText, Typography.headlineMd, { color: colors.text }]}>
+              Retry Verification
+            </Text>
           </TouchableOpacity>
         </View>
       )}
@@ -224,7 +364,7 @@ export default function VerifyMeterScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
+  container: { flex: 1 },
   topBar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -232,18 +372,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.containerMargin,
     paddingVertical: Spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.outlineVariant,
   },
   backBtn: {
     width: 40,
     height: 40,
     borderRadius: Rounded.full,
-    backgroundColor: Colors.surfaceContainer,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  topBarTitle: { color: Colors.text },
-  content: { flex: 1, padding: Spacing.containerMargin },
+  topBarTitle: {},
+  scroll: { flex: 1 },
+  content: {
+    flexGrow: 1,
+    padding: Spacing.containerMargin,
+    paddingBottom: Spacing.xl,
+  },
   loadingContainer: {
     flex: 1,
     alignItems: 'center',
@@ -262,7 +405,6 @@ const styles = StyleSheet.create({
     height: 100,
     borderRadius: 50,
     borderWidth: 4,
-    borderColor: Colors.surfaceContainerHigh,
   },
   spinner: {
     position: 'absolute',
@@ -271,10 +413,9 @@ const styles = StyleSheet.create({
     borderRadius: 50,
     borderWidth: 4,
     borderColor: 'transparent',
-    borderTopColor: Colors.primary,
   },
-  loadingTitle: { color: Colors.primary },
-  loadingSubtitle: { color: Colors.textSecondary, textAlign: 'center' },
+  loadingTitle: {},
+  loadingSubtitle: { textAlign: 'center' },
   successContainer: {
     flex: 1,
     alignItems: 'center',
@@ -285,24 +426,38 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: Rounded.full,
-    backgroundColor: Colors.successBg,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: Spacing.sm,
   },
   successIcon: { alignItems: 'center', justifyContent: 'center' },
-  successTitle: { color: Colors.primary },
-  successSubtitle: { color: Colors.textSecondary, textAlign: 'center' },
+  successTitle: {},
+  successSubtitle: { textAlign: 'center' },
+  errorContainer: {
+    flex: 1,
+    alignItems: 'center',
+    gap: Spacing.md,
+    paddingTop: Spacing.xl,
+  },
+  errorIconRing: {
+    width: 100,
+    height: 100,
+    borderRadius: Rounded.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: Spacing.sm,
+    borderWidth: 1,
+  },
+  errorIcon: { alignItems: 'center', justifyContent: 'center' },
+  errorTitle: { textAlign: 'center' },
+  errorSubtitle: { textAlign: 'center', paddingHorizontal: Spacing.sm },
   detailsCard: {
     width: '100%',
-    backgroundColor: Colors.surface,
     borderRadius: Rounded.lg,
     borderWidth: 1,
-    borderColor: Colors.outlineVariant,
     padding: Spacing.lg,
     overflow: 'hidden',
     marginTop: Spacing.md,
-    shadowColor: Colors.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.05,
     shadowRadius: 8,
@@ -315,8 +470,10 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: Rounded.full,
-    backgroundColor: Colors.secondary,
     opacity: 0.08,
+  },
+  errorCardDecor: {
+    opacity: 0.06,
   },
   detailsRow: {
     flexDirection: 'row',
@@ -324,44 +481,92 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     marginBottom: Spacing.md,
   },
-  detailLabel: { color: Colors.textSecondary, textTransform: 'uppercase', marginBottom: 4 },
-  detailValue: { color: Colors.primary },
+  detailLabel: { textTransform: 'uppercase', marginBottom: 4 },
+  detailValue: {},
   activeBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: 'rgba(132,204,22,0.15)',
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: Rounded.full,
   },
-  activeBadgeText: { color: Colors.secondaryDark, textTransform: 'uppercase' },
-  divider: { height: 1, backgroundColor: Colors.surfaceContainerHighest, marginBottom: Spacing.md },
+  activeBadgeText: { textTransform: 'uppercase' },
+  failedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: Rounded.full,
+    borderWidth: 1,
+  },
+  failedBadgeText: { textTransform: 'uppercase' },
+  divider: { height: 1, marginBottom: Spacing.md },
   detailsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: Spacing.md,
   },
   gridItem: { width: '45%' },
+  errorNoticeBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    borderRadius: Rounded.default,
+    marginTop: 4,
+    borderLeftWidth: 3,
+  },
+  errorNoticeText: {
+    flex: 1,
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  tipBox: {
+    marginTop: Spacing.md,
+    paddingTop: Spacing.md,
+    borderTopWidth: 1,
+    gap: 6,
+  },
+  tipHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  tipTitle: {
+    textTransform: 'uppercase',
+  },
+  tipText: {
+    fontSize: 12,
+    lineHeight: 18,
+  },
   stickyFooter: {
     padding: Spacing.containerMargin,
     borderTopWidth: 1,
-    borderTopColor: Colors.outlineVariant,
-    backgroundColor: Colors.background,
+    gap: Spacing.sm,
   },
   confirmBtn: {
     height: 52,
-    backgroundColor: Colors.primary,
     borderRadius: Rounded.full,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: Spacing.xs,
-    shadowColor: Colors.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 4,
   },
-  confirmBtnText: { color: Colors.white },
+  confirmBtnText: {},
+  secondaryBtn: {
+    height: 48,
+    borderRadius: Rounded.full,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.xs,
+  },
+  secondaryBtnText: {},
 });

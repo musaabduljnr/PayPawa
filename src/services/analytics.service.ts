@@ -1,35 +1,40 @@
+import { ConsumptionAnalyticsService } from './consumption-analytics.service';
+import { PeriodChartData } from '@/types/consumption';
+
 export interface EnergyInsightsData {
-  estimatedDaysLeft: number;
+  estimatedDaysLeft: number | null;
   monthlySpendNaira: number;
-  totalUnitsKwh: number;
-  dailyAverageKwh: number;
+  totalUnitsKwh: number | null;
+  dailyAverageKwh: number | null;
   spendingChangePct: number;
-  unitsChangePct: number;
+  unitsChangePct: number | null;
 }
 
+/**
+ * AnalyticsService - Unified facade delegating to authoritative ConsumptionAnalyticsService.
+ * Mock static datasets have been removed.
+ */
 export class AnalyticsService {
   /**
-   * Retrieves aggregated consumption statistics and bento insights.
+   * Retrieves aggregated consumption statistics and bento insights from authoritative engine.
    */
-  static async getInsights(userId: string): Promise<EnergyInsightsData> {
+  static async getInsights(userId: string, meterId?: string | null): Promise<EnergyInsightsData> {
+    const analytics = await ConsumptionAnalyticsService.getConsumptionAnalytics(userId, meterId, '30d');
     return {
-      estimatedDaysLeft: 12,
-      monthlySpendNaira: 24500,
-      totalUnitsKwh: 114,
-      dailyAverageKwh: 3.8,
-      spendingChangePct: 12,
-      unitsChangePct: 8,
+      estimatedDaysLeft: analytics.forecast.estimatedDaysRemainingRange ? parseInt(analytics.forecast.estimatedDaysRemainingRange) || null : null,
+      monthlySpendNaira: analytics.spending.currentPeriodSpendNaira,
+      totalUnitsKwh: analytics.consumption.totalUnitsKwh,
+      dailyAverageKwh: analytics.consumption.estimatedDailyUnitsKwh,
+      spendingChangePct: analytics.spending.percentageChange,
+      unitsChangePct: null,
     };
   }
 
   /**
-   * Period trend datasets for analytics charts.
+   * Authoritative chart data aggregation delegating directly to ConsumptionAnalyticsService.
    */
-  static getChartData() {
-    return {
-      W: [60, 80, 45, 90, 70, 55, 75],
-      M: [50, 70, 60, 80, 55, 90, 65, 70, 50, 85, 60, 75, 40, 88, 72, 66, 55, 80, 70, 60, 75, 82, 55, 65, 78, 72, 68, 85, 77, 60],
-      Y: [70, 60, 80, 75, 90, 65, 70, 85, 60, 75, 80, 72],
-    };
+  static async getChartData(userId: string, meterId?: string | null, period: '7d' | '30d' | '1y' = '7d'): Promise<PeriodChartData> {
+    const analytics = await ConsumptionAnalyticsService.getConsumptionAnalytics(userId, meterId, period);
+    return analytics.periodChart;
   }
 }

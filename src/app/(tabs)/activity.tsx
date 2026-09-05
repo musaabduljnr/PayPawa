@@ -29,13 +29,32 @@ function TransactionItem({ tx, colors }: { tx: Transaction; colors: any }) {
         <View
           style={[
             styles.txIcon,
-            { backgroundColor: isFunding ? colors.successBg : colors.surfaceContainerHigh },
+            {
+              backgroundColor:
+                tx.status === 'Failed'
+                  ? colors.errorBg
+                  : isFunding
+                  ? colors.successBg
+                  : colors.surfaceContainerHigh,
+            },
           ]}
         >
           <MaterialIcons
-            name={isFunding ? 'account-balance-wallet' : 'electric-bolt'}
+            name={
+              tx.status === 'Failed'
+                ? 'error-outline'
+                : isFunding
+                ? 'account-balance-wallet'
+                : 'electric-bolt'
+            }
             size={22}
-            color={isFunding ? colors.secondaryDark : colors.primary}
+            color={
+              tx.status === 'Failed'
+                ? colors.error
+                : isFunding
+                ? colors.secondaryDark
+                : colors.primary
+            }
           />
         </View>
         <View style={styles.txInfo}>
@@ -52,7 +71,14 @@ function TransactionItem({ tx, colors }: { tx: Transaction; colors: any }) {
             style={[
               styles.txAmount,
               Typography.metricUnit,
-              { color: isFunding ? colors.secondaryDark : colors.text },
+              {
+                color:
+                  tx.status === 'Failed'
+                    ? colors.error
+                    : isFunding
+                    ? colors.secondaryDark
+                    : colors.text,
+              },
             ]}
           >
             {isFunding ? '+' : '-'}₦{Math.abs(tx.amount).toLocaleString()}
@@ -141,6 +167,14 @@ function TransactionItem({ tx, colors }: { tx: Transaction; colors: any }) {
                 {isFunding ? '+' : '-'}₦{tx.amount.toLocaleString()}
               </Text>
             </View>
+            {(tx.description || tx.errorMessage || tx.status === 'Failed') && (
+              <View style={[styles.detailRow, { alignItems: 'flex-start', paddingTop: 4 }]}>
+                <Text style={[styles.detailLabel, Typography.labelCaps, { color: colors.error }]}>Detail</Text>
+                <Text style={[styles.detailValue, Typography.bodyMd, { color: colors.error, flex: 1, textAlign: 'right' }]}>
+                  {tx.errorMessage || tx.description || 'Transaction could not be completed by provider.'}
+                </Text>
+              </View>
+            )}
           </View>
 
           {tx.token && (
