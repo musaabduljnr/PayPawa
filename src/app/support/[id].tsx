@@ -79,10 +79,16 @@ export default function TicketDetailsScreen() {
       );
     }
 
+    // Active polling fallback (every 5s) to guarantee zero latency on staff replies
+    const pollTimer = setInterval(() => {
+      fetchDetails();
+    }, 5000);
+
     return () => {
       if (channelRef.current) {
         channelRef.current.unsubscribe();
       }
+      clearInterval(pollTimer);
     };
   }, [id, fetchDetails, refreshSupportCount]);
 

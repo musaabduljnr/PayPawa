@@ -968,6 +968,69 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
   }, [user?.id, session?.user?.id, refreshTransactions]);
 
+  // ── Realtime Support & Notification Listener ────────
+  useEffect(() => {
+    const activeUserId = user?.id || session?.user?.id;
+    if (!activeUserId) return;
+
+    // 1. Initial count check
+    refreshSupportCount();
+
+    // 2. Real-time channel for support notes, case updates, and notifications
+    const supportChannel = supabase
+      .channel(`support-realtime-${activeUserId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'support_case_notes',
+          filter: 'is_internal=eq.false',
+        },
+        () => {
+          refreshSupportCount();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'support_cases',
+          filter: `customer_id=eq.${activeUserId}`,
+        },
+        () => {
+          refreshSupportCount();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${activeUserId}`,
+        },
+        (payload: any) => {
+          refreshNotifications();
+          if (payload?.new?.type === 'support_reply') {
+            refreshSupportCount();
+          }
+        }
+      )
+      .subscribe();
+
+    // 3. Fallback active polling interval (every 20 seconds) while app is active
+    const pollInterval = setInterval(() => {
+      refreshSupportCount();
+    }, 20000);
+
+    return () => {
+      supabase.removeChannel(supportChannel);
+      clearInterval(pollInterval);
+    };
+  }, [user?.id, session?.user?.id, refreshSupportCount, refreshNotifications]);
+
   const fundWallet = async (
     amount: number,
     method: PaymentMethodType = 'card'

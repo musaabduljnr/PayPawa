@@ -376,11 +376,21 @@ export default function SupportCenterScreen() {
                           {t.caseNumber}
                         </Text>
                       </View>
-                      <View style={[styles.statusBadge, { backgroundColor: `${statusColor}18` }]}>
-                        <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
-                        <Text style={[styles.statusText, Typography.labelCaps, { color: statusColor }]}>
-                          {t.status.replace(/_/g, ' ')}
-                        </Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        {t.unreadCount && t.unreadCount > 0 ? (
+                          <View style={[styles.statusBadge, { backgroundColor: 'rgba(239,68,68,0.15)' }]}>
+                            <View style={[styles.statusDot, { backgroundColor: '#ef4444' }]} />
+                            <Text style={[styles.statusText, Typography.labelCaps, { color: '#ef4444', fontWeight: '700' }]}>
+                              {t.unreadCount > 1 ? `${t.unreadCount} New Replies` : 'New Reply'}
+                            </Text>
+                          </View>
+                        ) : null}
+                        <View style={[styles.statusBadge, { backgroundColor: `${statusColor}18` }]}>
+                          <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
+                          <Text style={[styles.statusText, Typography.labelCaps, { color: statusColor }]}>
+                            {t.status.replace(/_/g, ' ')}
+                          </Text>
+                        </View>
                       </View>
                     </View>
 

@@ -844,7 +844,7 @@ export default function HomeScreen() {
             >
               <MaterialIcons name="headset-mic" size={22} color={colors.primary} />
               {unreadSupportCount > 0 && (
-                <View style={styles.bellBadge}>
+                <View style={[styles.bellBadge, { borderColor: colors.surfaceContainerHighest }]}>
                   <Text style={styles.bellBadgeText}>
                     {unreadSupportCount > 9 ? '9+' : unreadSupportCount}
                   </Text>
@@ -861,7 +861,7 @@ export default function HomeScreen() {
             >
               <MaterialIcons name="notifications-none" size={24} color={colors.primary} />
               {unreadCount > 0 && (
-                <View style={styles.bellBadge}>
+                <View style={[styles.bellBadge, { borderColor: colors.surfaceContainerHighest }]}>
                   <Text style={styles.bellBadgeText}>
                     {unreadCount > 9 ? '9+' : unreadCount}
                   </Text>

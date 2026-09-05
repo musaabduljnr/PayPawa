@@ -40,6 +40,7 @@ export default function ProfileScreen() {
     updateProfile,
     notificationPreferences,
     updateNotificationPreferences,
+    unreadSupportCount,
   } = useApp();
   const { isDark, toggleTheme, colors } = useTheme();
 
@@ -562,7 +563,14 @@ export default function ProfileScreen() {
               onPress={() => router.push('/support' as any)}
             >
               <MaterialIcons name="headset-mic" size={22} color={colors.outline} />
-              <Text style={[styles.listItemText, Typography.metricUnit, { color: colors.text }]}>Help & Support Center</Text>
+              <Text style={[styles.listItemText, Typography.metricUnit, { color: colors.text, flex: 1 }]}>Help & Support Center</Text>
+              {unreadSupportCount > 0 && (
+                <View style={{ backgroundColor: '#ef4444', borderRadius: 10, paddingHorizontal: 6, paddingVertical: 2, marginRight: 8 }}>
+                  <Text style={{ color: '#ffffff', fontSize: 11, fontFamily: 'Inter_700Bold' }}>
+                    {unreadSupportCount > 9 ? '9+' : unreadSupportCount}
+                  </Text>
+                </View>
+              )}
               <MaterialIcons name="chevron-right" size={22} color={colors.outline} style={styles.chevron} />
             </TouchableOpacity>
             <View style={[styles.divider, { backgroundColor: colors.outlineVariant }]} />

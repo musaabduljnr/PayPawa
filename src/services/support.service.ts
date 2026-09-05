@@ -143,7 +143,34 @@ export class SupportService {
         reopenedAt: row.reopened_at,
         createdAt: row.created_at,
         updatedAt: row.updated_at,
+        unreadCount: 0,
       }));
+
+      // Enrich tickets with unread staff replies count
+      if (tickets.length > 0) {
+        try {
+          const ticketIds = tickets.map((t) => t.id);
+          const { data: unreadNotes } = await (supabase as any)
+            .from('support_case_notes')
+            .select('case_id')
+            .in('case_id', ticketIds)
+            .eq('is_internal', false)
+            .neq('author_user_id', customerId)
+            .is('read_by_customer_at', null);
+
+          if (unreadNotes && unreadNotes.length > 0) {
+            const countsMap: Record<string, number> = {};
+            unreadNotes.forEach((n: any) => {
+              countsMap[n.case_id] = (countsMap[n.case_id] || 0) + 1;
+            });
+            tickets.forEach((t) => {
+              t.unreadCount = countsMap[t.id] || 0;
+            });
+          }
+        } catch (enrichErr) {
+          console.warn('[SupportService.getTickets] Failed to enrich unread counts:', enrichErr);
+        }
+      }
 
       return { success: true, data: tickets };
     } catch (err: any) {
@@ -335,9 +362,35 @@ export class SupportService {
    */
   static async getUnreadSupportCount(): Promise<number> {
     try {
+      // 1. Primary path: Call the dedicated database RPC
       const { data, error } = await (supabase as any).rpc('customer_get_unread_support_count');
-      if (error) throw error;
-      return typeof data === 'number' ? data : 0;
+      if (!error && typeof data === 'number') {
+        return data;
+      }
+
+      // 2. Resilient fallback path: Directly query active customer cases & unread staff notes
+      const { data: userData } = await (supabase as any).auth.getUser();
+      const userId = userData?.user?.id;
+      if (!userId) return 0;
+
+      const { data: cases, error: casesErr } = await (supabase as any)
+        .from('support_cases')
+        .select('id')
+        .eq('customer_id', userId);
+
+      if (casesErr || !cases || cases.length === 0) return 0;
+      const caseIds = cases.map((c: any) => c.id);
+
+      const { count, error: countErr } = await (supabase as any)
+        .from('support_case_notes')
+        .select('id', { count: 'exact', head: true })
+        .in('case_id', caseIds)
+        .eq('is_internal', false)
+        .neq('author_user_id', userId)
+        .is('read_by_customer_at', null);
+
+      if (countErr) return 0;
+      return count || 0;
     } catch (err) {
       console.warn('[SupportService.getUnreadSupportCount] Error:', err);
       return 0;
@@ -349,11 +402,31 @@ export class SupportService {
    */
   static async markTicketRead(ticketId: string): Promise<boolean> {
     try {
+      if (!ticketId) return false;
+
+      // 1. Primary path: Call database RPC
       const { data, error } = await (supabase as any).rpc('customer_mark_ticket_read', {
         p_ticket_id: ticketId,
       });
-      if (error) throw error;
-      return true;
+      if (!error) return true;
+
+      // 2. Resilient fallback path: Directly update unread notes
+      const { data: userData } = await (supabase as any).auth.getUser();
+      const userId = userData?.user?.id;
+
+      let updateQuery = (supabase as any)
+        .from('support_case_notes')
+        .update({ read_by_customer_at: new Date().toISOString() })
+        .eq('case_id', ticketId)
+        .eq('is_internal', false)
+        .is('read_by_customer_at', null);
+
+      if (userId) {
+        updateQuery = updateQuery.neq('author_user_id', userId);
+      }
+
+      const { error: updateErr } = await updateQuery;
+      return !updateErr;
     } catch (err) {
       console.warn('[SupportService.markTicketRead] Error:', err);
       return false;
