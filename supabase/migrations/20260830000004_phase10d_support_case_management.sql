@@ -291,11 +291,11 @@ BEGIN
             m.meter_type,
             m.customer_name,
             m.address,
-            m.is_primary,
+            m.is_active AS is_primary,
             m.created_at
         FROM public.meters m
         WHERE m.user_id = v_case.customer_id
-        ORDER BY m.is_primary DESC, m.created_at DESC
+        ORDER BY m.is_active DESC, m.created_at DESC
     ) m_row;
 
     -- 3. Customer Recent Electricity Transactions
@@ -305,7 +305,7 @@ BEGIN
             et.id,
             et.meter_number,
             et.disco_code,
-            et.disco_name,
+            et.disco_code AS disco_name,
             et.amount_kobo,
             et.units_kwh,
             et.token,
@@ -335,7 +335,7 @@ BEGIN
                     wl.reference,
                     wl.description,
                     wl.created_at
-                FROM public.wallet_ledger wl
+                FROM public.wallet_transactions wl
                 WHERE wl.wallet_id = w.id
                 ORDER BY wl.created_at DESC
                 LIMIT 10
@@ -355,7 +355,7 @@ BEGIN
             pa.status,
             pa.reference,
             pa.created_at,
-            pa.verified_at
+            pa.updated_at AS verified_at
         FROM public.payment_attempts pa
         WHERE pa.user_id = v_case.customer_id
         ORDER BY pa.created_at DESC
