@@ -8,6 +8,7 @@ import {
   AIEngineHealthStatus,
 } from '@/types/ai';
 import { AI_CONFIG } from './ai-config';
+import { supabase } from '../supabase';
 
 /**
  * Google Gemini AI Provider.
@@ -28,6 +29,19 @@ export class GeminiAIProvider implements IAIProvider {
   async checkHealth(): Promise<{ status: AIEngineHealthStatus; message: string; latencyMs: number }> {
     const startTime = Date.now();
     if (!this.apiKey || this.apiKey.includes('your_google_gemini')) {
+      if (supabase) {
+        try {
+          const { data, error } = await supabase.functions.invoke('gemini-gateway', {
+            body: { action: 'health_check', model: this.modelName },
+          });
+          const latencyMs = Date.now() - startTime;
+          if (!error && data?.success) {
+            return { status: 'CONNECTED', message: 'Gemini AI engine online via Supabase Gateway.', latencyMs };
+          }
+        } catch {
+          // fall through
+        }
+      }
       return {
         status: 'CONFIGURATION_ERROR',
         message: 'GEMINI_API_KEY is not configured or contains placeholder.',
@@ -86,6 +100,35 @@ export class GeminiAIProvider implements IAIProvider {
     history?: Array<{ role: 'user' | 'assistant'; content: string }>
   ): Promise<StructuredAIResponse> {
     const prompt = this.constructPrompt(context, question, history);
+
+    if (!this.apiKey || this.apiKey.includes('your_google_gemini')) {
+      if (supabase) {
+        try {
+          const { data: resJson, error } = await supabase.functions.invoke('gemini-gateway', {
+            body: {
+              action: 'generate_advice',
+              model: this.modelName,
+              contents: [{ parts: [{ text: prompt }] }],
+              generationConfig: {
+                temperature: AI_CONFIG.gemini.temperature,
+                maxOutputTokens: AI_CONFIG.gemini.maxOutputTokens,
+                responseMimeType: 'application/json',
+              },
+            },
+          });
+          if (!error && resJson) {
+            const rawText = resJson?.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (rawText) {
+              const parsed = JSON.parse(rawText);
+              return this.sanitizeStructuredResponse(parsed, context);
+            }
+          }
+        } catch (e) {
+          console.warn('[GeminiAIProvider] Gateway fallback error:', e);
+        }
+      }
+    }
+
     const url = `${AI_CONFIG.gemini.endpointBase}/${this.modelName}:generateContent?key=${this.apiKey}`;
 
     const controller = new AbortController();
@@ -142,6 +185,36 @@ export class GeminiAIProvider implements IAIProvider {
   async generateAnalytics(context: EnergyContext, requestId = `REQ-${Date.now()}`): Promise<StructuredInsightsAnalytics> {
     const startTime = Date.now();
     const prompt = this.constructAnalyticsPrompt(context);
+
+    if (!this.apiKey || this.apiKey.includes('your_google_gemini')) {
+      if (supabase) {
+        try {
+          const { data: resJson, error } = await supabase.functions.invoke('gemini-gateway', {
+            body: {
+              action: 'generate',
+              model: this.modelName,
+              contents: [{ parts: [{ text: prompt }] }],
+              generationConfig: {
+                temperature: 0.1,
+                maxOutputTokens: 1536,
+                responseMimeType: 'application/json',
+              },
+            },
+          });
+          if (!error && resJson) {
+            const rawText = resJson?.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (rawText) {
+              const latencyMs = Date.now() - startTime;
+              const parsed = JSON.parse(rawText);
+              return this.sanitizeStructuredAnalytics(parsed, context, requestId, latencyMs);
+            }
+          }
+        } catch (e) {
+          console.warn('[GeminiAIProvider] Gateway analytics fallback error:', e);
+        }
+      }
+    }
+
     const url = `${AI_CONFIG.gemini.endpointBase}/${this.modelName}:generateContent?key=${this.apiKey}`;
 
     const controller = new AbortController();

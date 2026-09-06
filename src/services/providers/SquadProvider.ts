@@ -13,6 +13,7 @@ import { LoggerService } from '../logger.service';
 import { CorrelationService } from '../correlation.service';
 import { SquadMonitoringService } from '../squad-monitoring.service';
 import { SquadCircuitBreaker } from '../reliability/circuit-breaker.service';
+import { supabase } from '../supabase';
 
 /**
  * Squad (by HabariPay / GTCO) Electricity Gateway Implementation
@@ -92,6 +93,27 @@ export class SquadProvider implements ElectricityProvider {
         }
       } catch (err) {
         console.warn('[SquadProvider] Failed to fetch live DISCO directory; using fallback catalog:', err);
+      }
+    }
+
+    if (!this.secretKey && supabase) {
+      try {
+        const { data: res } = await supabase.functions.invoke('squad-gateway', {
+          body: { action: 'disco_list' },
+        });
+        if (res && res.status === 200 && Array.isArray(res.data)) {
+          return res.data.map((item: any) => ({
+            code: item.code.toLowerCase(),
+            name: item.name,
+            shortName: item.code.toUpperCase(),
+            serviceID: item.code,
+            minAmountKobo: 50000,
+            maxAmountKobo: 50000000,
+            isAvailable: true,
+          }));
+        }
+      } catch (err) {
+        // use fallback catalog
       }
     }
 
@@ -252,6 +274,39 @@ export class SquadProvider implements ElectricityProvider {
         };
       }
     }
+    
+    // If running in client without local secretKey, invoke Supabase Edge Function gateway
+    if (!hasLiveKey && supabase) {
+      try {
+        const { data: res, error: invokeErr } = await supabase.functions.invoke('squad-gateway', {
+          body: {
+            action: 'lookup',
+            meterNumber: sanitizedMeter,
+            meterType: request.meterType || 'prepaid',
+            provider: squadDisco,
+          },
+        });
+
+        if (!invokeErr && res && res.status === 200 && res.success && res.data) {
+          const d = res.data;
+          return {
+            success: true,
+            meterNumber: sanitizedMeter,
+            discoCode: request.discoCode,
+            customerName: d.customer_name || 'Verified Customer',
+            address: d.address || 'Address on Record',
+            meterType: request.meterType,
+            tariffCode: d.account_type || undefined,
+            minimumVendNaira: d.minimum_vend ? Number(d.minimum_vend) : undefined,
+            outstandingDebtNaira: d.outstanding_debt ? Number(d.outstanding_debt) : undefined,
+            providerSessionRef: d.reference,
+            rawResponse: res,
+          };
+        }
+      } catch (e) {
+        console.warn('[SquadProvider] Edge gateway lookup exception:', e);
+      }
+    }
 
     // Squad Sandbox / Development Mode Fallback
     LoggerService.debug('squad-provider', 'squad.meter.sandbox_fallback', {
@@ -357,6 +412,59 @@ export class SquadProvider implements ElectricityProvider {
           internalReference: requestId,
           responseMessage: `Amount ₦${amountNaira.toLocaleString()} is below the DISCO minimum threshold of ₦${minVendNaira.toLocaleString()}.`,
         };
+      }
+    }
+
+    // If running in client without local secretKey, invoke Supabase Edge Function gateway
+    const squadDisco = normalizeToSquadDisco(request.discoCode);
+    if (!hasLiveKey && supabase) {
+      try {
+        const { data: res, error: invokeErr } = await supabase.functions.invoke('squad-gateway', {
+          body: {
+            action: 'vend',
+            amountNaira,
+            meterNumber: sanitizedMeter,
+            meterType: request.meterType || 'prepaid',
+            discoCode: squadDisco,
+            customerPhoneNumber: request.customerPhoneNumber,
+            customerEmail: request.customerEmail,
+            internalReference: requestId,
+            sessionReference,
+          },
+        });
+
+        if (!invokeErr && res && (res.status === 200 || res.status === 201) && res.success && res.data) {
+          const d = res.data;
+          const token = this.formatTokenString(d.token || d.standard_token || d.sts_token || '');
+          const unitsKwh = d.units ? parseFloat(String(d.units)) : undefined;
+          return {
+            success: true,
+            status: 'successful',
+            token,
+            unitsKwh,
+            tariffPerKwhKobo: d.rate ? Math.round(Number(d.rate) * 100) : undefined,
+            amountKobo: request.amountKobo,
+            providerReference: d.reference || requestId,
+            internalReference: requestId,
+            vatNaira: d.vat ? Number(d.vat) : undefined,
+            receiptNumber: d.receipt_number,
+            tariffClass: d.tariff_class || 'Residential',
+            outstandingDebtNaira: d.debt_cleared ? Number(d.debt_cleared) : undefined,
+            responseMessage: res.message || 'Transaction Successful',
+            rawResponse: res,
+          };
+        } else if (!invokeErr && res && res.message) {
+          return {
+            success: false,
+            status: 'failed',
+            amountKobo: request.amountKobo,
+            internalReference: requestId,
+            responseMessage: res.message || 'Electricity vending failed with provider.',
+            rawResponse: res,
+          };
+        }
+      } catch (e) {
+        console.warn('[SquadProvider] Edge gateway vend exception:', e);
       }
     }
 
@@ -626,6 +734,36 @@ export class SquadProvider implements ElectricityProvider {
           providerReference: request.providerReference,
           rawResponse: { error: err?.message },
         };
+      }
+    }
+
+    if (!hasLiveKey && supabase) {
+      try {
+        const { data: res, error: invokeErr } = await supabase.functions.invoke('squad-gateway', {
+          body: {
+            action: 'query',
+            reference: request.providerReference || request.internalReference,
+          },
+        });
+
+        if (!invokeErr && res && res.status === 200 && res.success && res.data) {
+          const d = Array.isArray(res.data) ? res.data[0] : res.data;
+          const meta = d?.meta_json || {};
+          const isSuccess = d?.status === 'success' || d?.status === 'successful';
+          return {
+            status: isSuccess ? 'successful' : 'processing',
+            token: meta.token ? this.formatTokenString(meta.token) : undefined,
+            unitsKwh: meta.total_units ? parseFloat(String(meta.total_units)) : undefined,
+            amountKobo: d.amount ? Math.round(Number(d.amount) * 100) : undefined,
+            tariffPerKwhKobo: meta.tariff_rate
+              ? Math.round(parseFloat(String(meta.tariff_rate)) * 100)
+              : undefined,
+            providerReference: d.value_reference || d.reference,
+            rawResponse: res,
+          };
+        }
+      } catch (e) {
+        console.warn('[SquadProvider] Gateway query exception:', e);
       }
     }
 

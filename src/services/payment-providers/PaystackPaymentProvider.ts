@@ -6,6 +6,7 @@ import {
   VerifyPaymentResponse,
   WebhookVerificationResult,
 } from './PaymentProvider';
+import { supabase } from '../supabase';
 
 export interface PaystackConfig {
   publicKey?: string;
@@ -31,10 +32,11 @@ export class PaystackPaymentProvider implements PaymentProvider {
 
   isConfigured(): boolean {
     return Boolean(
-      this.secretKey && 
-      !this.secretKey.includes('sk_test_xxx') && 
-      !this.secretKey.includes('sk_test_placeholder') &&
-      this.secretKey !== ''
+      (this.secretKey && 
+       !this.secretKey.includes('sk_test_xxx') && 
+       !this.secretKey.includes('sk_test_placeholder') &&
+       this.secretKey !== '') ||
+      supabase
     );
   }
 
@@ -46,6 +48,42 @@ export class PaystackPaymentProvider implements PaymentProvider {
         internalReference: request.internalReference,
         responseMessage: 'Paystack secret key is not configured in server environment.',
       };
+    }
+
+    // 1. If no local secretKey is available, delegate to Supabase Edge Function gateway
+    if (!this.secretKey) {
+      try {
+        const { data, error } = await supabase.functions.invoke('paystack-gateway', {
+          body: { action: 'initialize', ...request },
+        });
+
+        if (error || !data || !data.success) {
+          return {
+            success: false,
+            providerReference: '',
+            internalReference: request.internalReference,
+            responseMessage: data?.errorMessage || error?.message || 'Paystack gateway initialization failed.',
+            rawResponse: data,
+          };
+        }
+
+        return {
+          success: true,
+          providerReference: data.providerReference || request.internalReference,
+          internalReference: request.internalReference,
+          checkoutUrl: data.checkoutUrl,
+          accessCode: data.accessCode,
+          responseMessage: data.responseMessage || 'Paystack authorization initialized successfully.',
+          rawResponse: data,
+        };
+      } catch (invokeErr: any) {
+        return {
+          success: false,
+          providerReference: '',
+          internalReference: request.internalReference,
+          responseMessage: `Paystack gateway connection error: ${invokeErr.message}`,
+        };
+      }
     }
 
     const controller = new AbortController();
@@ -129,6 +167,54 @@ export class PaystackPaymentProvider implements PaymentProvider {
         internalReference: request.internalReference,
         responseMessage: 'Paystack is not configured.',
       };
+    }
+
+    // 1. If no local secretKey is available, delegate to Supabase Edge Function gateway
+    if (!this.secretKey) {
+      try {
+        const { data, error } = await supabase.functions.invoke('paystack-gateway', {
+          body: {
+            action: 'verify',
+            reference: request.providerReference || request.internalReference,
+          },
+        });
+
+        if (error || !data || !data.success) {
+          return {
+            success: false,
+            status: data?.status || 'unknown',
+            amountKobo: data?.amountKobo || 0,
+            currency: 'NGN',
+            providerReference: request.providerReference || request.internalReference,
+            internalReference: request.internalReference,
+            responseMessage: data?.errorMessage || error?.message || 'Paystack verification failed.',
+            rawResponse: data,
+          };
+        }
+
+        return {
+          success: true,
+          status: data.status,
+          amountKobo: data.amountKobo,
+          currency: data.currency || 'NGN',
+          paidAt: data.paidAt,
+          channel: data.channel,
+          providerReference: data.providerReference,
+          internalReference: data.internalReference,
+          responseMessage: data.responseMessage || 'Payment verified',
+          rawResponse: data,
+        };
+      } catch (invokeErr: any) {
+        return {
+          success: false,
+          status: 'unknown',
+          amountKobo: 0,
+          currency: 'NGN',
+          providerReference: request.providerReference || request.internalReference,
+          internalReference: request.internalReference,
+          responseMessage: `Paystack gateway verification error: ${invokeErr.message}`,
+        };
+      }
     }
 
     const controller = new AbortController();
