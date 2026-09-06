@@ -19,7 +19,8 @@
         "EXPO_PUBLIC_DEFAULT_CURRENCY": "NGN",
         "EXPO_PUBLIC_SUPPORT_EMAIL": "support@paypawa.ng",
         "EXPO_PUBLIC_ELECTRICITY_PROVIDER": "squad",
-        "EXPO_PUBLIC_SQUAD_BASE_URL": "https://api-d.squadco.com"
+        "EXPO_PUBLIC_SQUAD_BASE_URL": "https://api-d.squadco.com",
+        "EXPO_PUBLIC_PAYSTACK_PUBLIC_KEY": "pk_56e05c562d2fbd0c4ff68a1df75067d601629dfc"
       }
     },
     "production": {
@@ -34,7 +35,8 @@
         "EXPO_PUBLIC_DEFAULT_CURRENCY": "NGN",
         "EXPO_PUBLIC_SUPPORT_EMAIL": "support@paypawa.ng",
         "EXPO_PUBLIC_ELECTRICITY_PROVIDER": "squad",
-        "EXPO_PUBLIC_SQUAD_BASE_URL": "https://api-d.squadco.com"
+        "EXPO_PUBLIC_SQUAD_BASE_URL": "https://api-d.squadco.com",
+        "EXPO_PUBLIC_PAYSTACK_PUBLIC_KEY": "pk_56e05c562d2fbd0c4ff68a1df75067d601629dfc"
       }
     }
   },
