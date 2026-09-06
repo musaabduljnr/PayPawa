@@ -85,6 +85,8 @@ const styles = StyleSheet.create({
   },
   logoImage: {
     width: 270,
-    height: 72,
+    maxWidth: '85%',
+    aspectRatio: 412 / 107,
+    resizeMode: 'contain',
   },
 });
