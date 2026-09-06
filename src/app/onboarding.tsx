@@ -351,7 +351,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   headerLogo: {
-    width: 130,
+    width: 140,
     height: 38,
   },
   carousel: {

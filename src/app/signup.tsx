@@ -258,7 +258,7 @@ export default function SignUp() {
                 >
                   <TextInput
                     style={[styles.input, Typography.bodyMd, { color: colors.text }]}
-                    placeholder="e.g. Musa Abubakar"
+                    placeholder="e.g. John Doe"
                     placeholderTextColor={colors.outline}
                     value={fullName}
                     onChangeText={(text) => {
@@ -289,7 +289,7 @@ export default function SignUp() {
               >
                 <TextInput
                   style={[styles.input, Typography.bodyMd, { color: colors.text }]}
-                  placeholder="e.g. musa@example.com"
+                  placeholder="e.g. john@example.com"
                   placeholderTextColor={colors.outline}
                   keyboardType="email-address"
                   autoCapitalize="none"
@@ -529,7 +529,7 @@ export default function SignUp() {
               <View style={[styles.inputWrapper, { backgroundColor: isDark ? colors.surfaceContainerLow : colors.surfaceContainer, borderColor: colors.outlineVariant }]}>
                 <TextInput
                   style={[styles.input, Typography.bodyMd, { color: colors.text }]}
-                  placeholder="e.g. musa@example.com"
+                  placeholder="e.g. john@example.com"
                   placeholderTextColor={colors.outline}
                   keyboardType="email-address"
                   autoCapitalize="none"
@@ -592,8 +592,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   headerLogo: {
-    width: 120,
-    height: 32,
+    width: 135,
+    height: 36,
   },
   tabSwitcher: {
     flexDirection: 'row',
