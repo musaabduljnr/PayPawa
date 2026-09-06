@@ -1,0 +1,44 @@
+{
+  "cli": {
+    "version": ">= 15.0.0"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal"
+    },
+    "preview": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_APP_ENV": "production",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://ohaartcdjulywktqjzqp.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9oYWFydGNkanVseXdrdHFqenFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc3NTQ1ODIsImV4cCI6MjEwMzMzMDU4Mn0.yHiweBzFjowP7BbnLqRxh1Ytc61C91dZ0YK6ZBqM-mI",
+        "EXPO_PUBLIC_DEFAULT_CURRENCY": "NGN",
+        "EXPO_PUBLIC_SUPPORT_EMAIL": "support@paypawa.ng",
+        "EXPO_PUBLIC_ELECTRICITY_PROVIDER": "squad",
+        "EXPO_PUBLIC_SQUAD_BASE_URL": "https://api-d.squadco.com"
+      }
+    },
+    "production": {
+      "autoIncrement": true,
+      "android": {
+        "buildType": "app-bundle"
+      },
+      "env": {
+        "EXPO_PUBLIC_APP_ENV": "production",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://ohaartcdjulywktqjzqp.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9oYWFydGNkanVseXdrdHFqenFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc3NTQ1ODIsImV4cCI6MjEwMzMzMDU4Mn0.yHiweBzFjowP7BbnLqRxh1Ytc61C91dZ0YK6ZBqM-mI",
+        "EXPO_PUBLIC_DEFAULT_CURRENCY": "NGN",
+        "EXPO_PUBLIC_SUPPORT_EMAIL": "support@paypawa.ng",
+        "EXPO_PUBLIC_ELECTRICITY_PROVIDER": "squad",
+        "EXPO_PUBLIC_SQUAD_BASE_URL": "https://api-d.squadco.com"
+      }
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}
