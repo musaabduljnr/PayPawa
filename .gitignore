@@ -41,6 +41,7 @@ scripts/brute_force_pw.js
 backups/
 *.backup
 *.dump
+supabase/.temp/
 
 # IDE & agent configs
 .agents/
