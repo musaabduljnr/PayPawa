@@ -10,6 +10,7 @@ import {
   ScrollView,
   ActivityIndicator,
   Modal,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -161,15 +162,23 @@ export default function SignUp() {
         style={styles.keyboardView}
       >
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          {/* Top Bar Navigation */}
+          {/* Top Bar Navigation with PayPawa Branding */}
           <View style={styles.topBar}>
             <TouchableOpacity
               style={[styles.backBtn, { backgroundColor: isDark ? colors.surfaceContainerLow : colors.surface, borderColor: colors.outlineVariant }]}
               onPress={() => router.replace('/onboarding')}
               activeOpacity={0.7}
+              accessibilityLabel="Back to onboarding"
             >
               <MaterialIcons name="chevron-left" size={24} color={colors.text} />
             </TouchableOpacity>
+            <Image
+              source={require('@/assets/images/paypawa-logo.png')}
+              style={styles.headerLogo}
+              resizeMode="contain"
+              accessibilityLabel="PayPawa Logo"
+            />
+            <View style={{ width: 40 }} />
           </View>
 
           {/* Tab Mode Switcher */}
@@ -581,6 +590,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  headerLogo: {
+    width: 120,
+    height: 32,
   },
   tabSwitcher: {
     flexDirection: 'row',

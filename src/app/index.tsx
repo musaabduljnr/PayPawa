@@ -1,21 +1,59 @@
-import React, { useEffect } from 'react';
-import { StyleSheet, View, ActivityIndicator, Text } from 'react-native';
-import { Redirect, router } from 'expo-router';
+import React, { useState, useEffect } from 'react';
+import { StyleSheet, View, Image, StatusBar, Animated } from 'react-native';
+import { Redirect } from 'expo-router';
 import { useApp } from '@/context/AppContext';
-import { Colors, Typography, Spacing } from '@/constants/theme';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 
-export default function Index() {
+export default function SplashScreen() {
   const { isLoadingAuth, isLoggedIn, isOnboarded } = useApp();
+  const [minTimerElapsed, setMinTimerElapsed] = useState(false);
+  const fadeAnim = useState(() => new Animated.Value(0))[0];
+  const scaleAnim = useState(() => new Animated.Value(0.92))[0];
 
-  if (isLoadingAuth) {
+  useEffect(() => {
+    // Subtle, elegant logo entrance animation
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 500,
+        useNativeDriver: true,
+      }),
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        friction: 8,
+        tension: 40,
+        useNativeDriver: true,
+      }),
+    ]).start();
+
+    // Enforce 2.5 second splash display duration (2-3 seconds per technical requirements)
+    const timer = setTimeout(() => {
+      setMinTimerElapsed(true);
+    }, 2500);
+
+    return () => clearTimeout(timer);
+  }, [fadeAnim, scaleAnim]);
+
+  // While splash duration is active or authentication state is initializing
+  if (!minTimerElapsed || isLoadingAuth) {
     return (
-      <View style={styles.loadingContainer}>
-        <View style={styles.logoCircle}>
-          <MaterialCommunityIcons name="bolt" size={36} color={Colors.secondary} />
-        </View>
-        <ActivityIndicator size="large" color={Colors.primary} style={{ marginTop: Spacing.lg }} />
-        <Text style={[styles.loadingText, Typography.bodyMd]}>Loading your energy profile...</Text>
+      <View style={styles.splashContainer}>
+        <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+        <Animated.View
+          style={[
+            styles.logoWrapper,
+            {
+              opacity: fadeAnim,
+              transform: [{ scale: scaleAnim }],
+            },
+          ]}
+        >
+          <Image
+            source={require('@/assets/images/paypawa-logo.png')}
+            style={styles.logoImage}
+            resizeMode="contain"
+            accessibilityLabel="PayPawa Logo"
+          />
+        </Animated.View>
       </View>
     );
   }
@@ -28,28 +66,25 @@ export default function Index() {
     return <Redirect href="/(tabs)/home" />;
   }
 
-  // 2. Unauthenticated / First launch -> Send to Onboarding Flow
+  // 2. Unauthenticated / First launch -> Route to Onboarding Flow
   return <Redirect href="/onboarding" />;
 }
 
 const styles = StyleSheet.create({
-  loadingContainer: {
+  splashContainer: {
     flex: 1,
-    backgroundColor: Colors.background,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: Spacing.containerMargin,
-  },
-  logoCircle: {
-    width: 68,
-    height: 68,
-    borderRadius: 20,
-    backgroundColor: Colors.primary,
+    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  loadingText: {
-    color: Colors.textSecondary,
-    marginTop: Spacing.md,
+  logoWrapper: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+    paddingHorizontal: 32,
+  },
+  logoImage: {
+    width: 240,
+    height: 100,
   },
 });

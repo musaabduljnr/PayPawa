@@ -8,6 +8,7 @@ import {
   FlatList,
   NativeSyntheticEvent,
   NativeScrollEvent,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -248,12 +249,12 @@ export default function OnboardingScreen() {
       {/* Top Header with PayPawa Branding */}
       <View style={styles.header}>
         <View style={styles.logoRow}>
-          <View style={[styles.logoBadge, { backgroundColor: colors.primary }]}>
-            <MaterialCommunityIcons name="bolt" size={20} color={colors.secondary} />
-          </View>
-          <Text style={[styles.logoText, Typography.headlineMd, { color: colors.primary, fontSize: 20 }]}>
-            Pay<Text style={{ color: colors.secondary }}>Pawa</Text>
-          </Text>
+          <Image
+            source={require('@/assets/images/paypawa-logo.png')}
+            style={styles.headerLogo}
+            resizeMode="contain"
+            accessibilityLabel="PayPawa Logo"
+          />
         </View>
       </View>
 
@@ -348,18 +349,10 @@ const styles = StyleSheet.create({
   logoRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.xs,
   },
-  logoBadge: {
-    width: 32,
-    height: 32,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  logoText: {
-    fontWeight: '800',
-    letterSpacing: -0.5,
+  headerLogo: {
+    width: 130,
+    height: 38,
   },
   carousel: {
     flex: 1,
